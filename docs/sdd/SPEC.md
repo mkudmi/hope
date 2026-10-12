@@ -6,6 +6,7 @@
 
 | ID | Требование / критерий | Реализация | Проверки |
 |---|---|---|---|
+| R-17 | Раскатка main через GitHub Actions в отдельный project hope-cz, своя БД, private server env, pinned SSH host key. Обычная раскатка оставляет bot/worker выключенными; ручной probe запускает bot один раз и останавливает. Панель/proxy не перезапускаются | `.github/workflows/deploy-cz.yml`, `deploy/` | Linux CI, receiver-тесты, health/inspect сервера |
 | R-16 | Callback-навигация Telegram обновляет текст и inline-клавиатуру текущего сообщения; неизменный экран не дублируется. Возврат в главное меню показывает тот же экран, что /start, по текущей привязке. Только явная невозможность редактирования допускает новый экран. Команды, ответы на текст и уведомления остаются отдельными сообщениями | `core/bot.py` | `tests/test_bot_navigation.py`, регрессия bot/purchase/existing |
 | R-01 | Один аккаунт для кабинета и Telegram; вход в кабинет по логину/паролю доступен без Telegram | `core/services.py`, `core/views.py`, `core/bot.py` | `tests/test_accounts.py`, `tests/test_views.py`, demo browser smoke |
 | R-02 | Импорт сохраняет существующие VPN-данные; comment панели обновляется в отдельном административном поле, показывается в таблице/карточке и участвует в поиске; владение появляется через приглашение после проверки получателя администратором | `core/services.py`, `core/panel.py` | `tests/test_accounts.py`, `tests/test_panel.py`, `tests/test_panel_comments.py`; live read-only импорт |

@@ -1,0 +1,63 @@
+name: hope-cz
+
+x-app: &app
+  image: ${HOPE_IMAGE:?Set release image}
+  env_file: ${HOPE_ENV_FILE:-/opt/hope/shared/.env}
+  environment:
+    DATABASE_URL: postgres://hope:${LOCAL_DB_PASSWORD:?Set database password}@db:5432/${APP_DATABASE_NAME:-hope_live}
+    PANEL_MODE: real
+    PANEL_WRITES_ENABLED: "false"
+  restart: unless-stopped
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${APP_DATABASE_NAME:-hope_live}
+      POSTGRES_USER: hope
+      POSTGRES_PASSWORD: ${LOCAL_DB_PASSWORD:?Set database password}
+    volumes:
+      - hope-db:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U hope -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    mem_limit: 256m
+  web:
+    <<: *app
+    ports:
+      - 127.0.0.1:18000:8000
+    volumes:
+      - hope-data:/app/data
+    command: [sh, -c, "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 1 --access-logfile /dev/null"]
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/health/', headers={'X-Forwarded-Proto':'https'}))"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    mem_limit: 256m
+  worker:
+    <<: *app
+    profiles: [telegram]
+    command: [python, manage.py, runworker]
+    depends_on:
+      web:
+        condition: service_healthy
+    mem_limit: 192m
+  bot:
+    <<: *app
+    profiles: [telegram]
+    command: [python, manage.py, runbot]
+    depends_on:
+      web:
+        condition: service_healthy
+    mem_limit: 192m
+
+volumes:
+  hope-db:
+  hope-data:

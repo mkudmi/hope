@@ -19,6 +19,11 @@
 
 ## Карта проекта
 
+Инфраструктурный проект исследований VPN на Windows называется `vpndev`:
+`C:\Users\mkudm\OneDrive\Documentos\ChatGPT\vpndev` (от этого checkout —
+`../ChatGPT/vpndev`). Историческое имя — `vpnresearch`. Инфраструктура и реестр
+доступов находятся в его `docs/`; секреты реестра не выводить и не копировать в Git.
+
 Python 3.12, Django 5.2, PostgreSQL 17, aiogram, httpx, серверные HTML-шаблоны; зависимости зафиксированы в `uv.lock` и `requirements.txt`.
 
 | Путь | Ответственность |

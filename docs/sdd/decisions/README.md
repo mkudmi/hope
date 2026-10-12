@@ -8,3 +8,5 @@
 
 - [0001 — Общий домен и отдельный путь кабинета](0001-shared-origin.md), accepted, 2026-10-12.
 - [0002 — Заказы в Telegram до браузерного аккаунта](0002-telegram-first-purchases.md), accepted, 2026-10-12.
+
+- [0003 — GitHub Actions и отдельные SSH-релизы HOPE](0003-github-ssh-releases.md), accepted, 2026-10-12.

@@ -192,3 +192,16 @@ TRUST_PROXY_HTTPS разрешено только при недоступном 
 без привязки либо меню связанного аккаунта. Состояние связи проверяется заново;
 при проверке нажмите /start → тарифы → главное меню и сравните текст и кнопки.
 См. [SDD 0012](sdd/changes/0012-bot-home-screen.md).
+
+## Сервер Чехии и GitHub Actions
+
+Раскатка HOPE — [deploy/README](../deploy/README.md), отдельный project hope-cz,
+серверная .env /opt/hope/shared/.env (0600). Main раскатывается через GitHub Actions
+после Linux/Python 3.12/PostgreSQL тестов. Рабочий режим пока standby: bot и worker
+остановлены. Только ручной probe_bot=true запускает bot на 30 секунд и затем
+останавливает; перед ним остановить локальный polling. Web на loopback 18000,
+публичный Caddy/панель/VPN не меняются. Нужен отдельный шаг публикации /hope/.
+Секреты приложения на сервере; SSH deploy key и закреплённый host key — в GitHub
+environment czech-standby. HOPE_IMAGE/HOPE_ENV_FILE описаны в .env.example.
+Обновление receiver производится отдельно через доверенный SSH, workflow не
+перезаписывает установленный forced-command приёмник. Не удалять volumes.

@@ -189,3 +189,11 @@ core/clients.py содержит официальные загрузки INCY/Ha
 ### Административный поток событий
 
 Notice.admin_event помечает события, доставляемые в ADMIN_GROUP_CHAT_ID с fallback ADMIN_CHAT_ID. Личные Notice сохраняют собственный маршрут и не зеркалируются. Outbox использует прежнюю политику retry/429/403; ключ события идемпотентен. Заявка binding сохраняется в Request под row lock BotContact вместе с уведомлением, без изменения панельной сущности или привязки. Telegram-профиль — информация для ручной проверки, не источник права доступа.
+
+## Раскатка через GitHub
+
+GitHub hosted runner передаёт точный SHA через restricted SSH receiver; релизы
+изолированы, shared .env и volumes сохраняются. Отдельный Compose hope-cz имеет
+свою PostgreSQL 17 и loopback web18000. Панель/прокси не входят в его project.
+Постоянный polling выключен, одноразовый probe завершается остановкой bot/worker.
+См. [ADR 0003](sdd/decisions/0003-github-ssh-releases.md).
