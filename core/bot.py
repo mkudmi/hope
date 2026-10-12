@@ -1,6 +1,7 @@
 """Private-chat Telegram interface. All business rules stay in services.py."""
 
 from aiogram import Bot, Dispatcher, F
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandStart
 from aiogram.types import (
     BotCommand,
@@ -65,6 +66,22 @@ def menu():
     )
 
 
+def home_screen(identity):
+    if identity:
+        return "HOPE VPN · Ваша подписка и подключение.", menu()
+    return (
+        "Добро пожаловать в HOPE VPN!\n\nВыберите тариф и срок, оформите заказ, получите реквизиты лично от администратора и сообщите о переводе. После ручной проверки владелец выдаст доступ.\n\nУже пользуетесь VPN? Для старой подписки запросите персональное приглашение у администратора и подключите Telegram к своему аккаунту.",
+        buttons(
+            [
+                [("Тарифы и цены", {"callback_data": "prices"})],
+                [("Хочу подключиться", {"callback_data": "new"})],
+                [("У меня уже есть подписка", {"callback_data": "existing"})],
+                [("Мои заказы", {"callback_data": "orders"}), ("Помощь", {"callback_data": "help"})],
+            ]
+        ),
+    )
+
+
 def price_buttons():
     return buttons(
         [
@@ -126,6 +143,22 @@ def identity_for(telegram_id):
     return identity
 
 
+async def render_screen(message: Message, text, *, edit=False, **kwargs):
+    """Replace a callback screen; send only on an explicit uneditable-message error."""
+    kwargs.setdefault("disable_web_page_preview", True)
+    if not edit:
+        return await message.answer(text, **kwargs)
+    try:
+        return await message.edit_text(text, **kwargs)
+    except TelegramBadRequest as exc:
+        reason = exc.message.lower()
+        if "message is not modified" in reason:
+            return None
+        if "message to edit not found" not in reason and "message can't be edited" not in reason:
+            raise
+        return await message.answer(text, **kwargs)
+
+
 def build_dispatcher():
     dp = Dispatcher()
 
@@ -160,55 +193,53 @@ def build_dispatcher():
                 await message.answer(str(exc))
             return
         identity = await sync_to_async(identity_for)(message.from_user.id)
-        if identity:
-            await message.answer("HOPE VPN · Ваша подписка и подключение.", reply_markup=menu())
-        else:
-            await message.answer(
-                "Добро пожаловать в HOPE VPN!\n\nВыберите тариф и срок, оформите заказ, получите реквизиты лично от администратора и сообщите о переводе. После ручной проверки владелец выдаст доступ.\n\nУже пользуетесь VPN? Для старой подписки запросите персональное приглашение у администратора и подключите Telegram к своему аккаунту.",
-                reply_markup=buttons(
-                    [
-                        [("Тарифы и цены", {"callback_data": "prices"})],
-                        [("Хочу подключиться", {"callback_data": "new"})],
-                        [("У меня уже есть подписка", {"callback_data": "existing"})],
-                        [("Мои заказы", {"callback_data": "orders"}), ("Помощь", {"callback_data": "help"})],
-                    ]
-                ),
-            )
+        text, markup = home_screen(identity)
+        await render_screen(message, text, reply_markup=markup)
 
     @dp.callback_query(F.data.startswith("bind:"))
     async def bind(callback: CallbackQuery):
-        if not callback.message or callback.message.chat.type != "private":
+        if (
+            not isinstance(callback.message, Message)
+            or callback.message.date.timestamp() == 0
+            or callback.message.chat.type != "private"
+        ):
             await callback.answer("Откройте личный чат.", show_alert=True)
             return
         try:
             await sync_to_async(confirm_bot)(callback.data.removeprefix("bind:"), callback.from_user.id)
             await callback.answer("Подтверждено")
-            await callback.message.answer(
-                "Теперь вернитесь в кабинет, обновите страницу и завершите привязку. До этого аккаунты ещё не связаны."
+            await render_screen(
+                callback.message,
+                "Теперь вернитесь в кабинет, обновите страницу и завершите привязку. До этого аккаунты ещё не связаны.",
+                edit=True,
             )
         except (DomainError, ValueError) as exc:
             await callback.answer(str(exc), show_alert=True)
 
-    async def action(message: Message, user_id, name, profile=None):
+    async def action(message: Message, user_id, name, profile=None, *, edit=False):
+        async def show(text, **kwargs):
+            return await render_screen(message, text, edit=edit, **kwargs)
+
         identity = await sync_to_async(identity_for)(user_id)
         if name == "menu":
-            await message.answer("HOPE VPN · Выберите действие.", reply_markup=menu())
+            text, markup = home_screen(identity)
+            await show(text, reply_markup=markup)
             return
         if name in ("prices", "new", "renew"):
             available = plans()
             if not available:
-                await message.answer(
+                await show(
                     "Тарифы пока уточняются. Напишите администратору.",
                     reply_markup=buttons([[("Написать администратору", {"callback_data": "support"})]]),
                 )
                 return
             if name == "renew" and not identity:
-                await message.answer(
+                await show(
                     "Для продления старой подписки сначала подключите Telegram к вашему аккаунту. Не оформляйте новую вместо существующей.",
                     reply_markup=buttons([[("У меня уже есть подписка", {"callback_data": "existing"})]]),
                 )
                 return
-            await message.answer(
+            await show(
                 "Тарифы HOPE VPN\n\n"
                 + "\n".join(f"{p['title']} — {p['price']} ₽" for p in available)
                 + "\n\nЦена за весь выбранный срок. Месяцы календарные. Оплату вручную подтверждает администратор. Выберите срок:",
@@ -219,7 +250,7 @@ def build_dispatcher():
             plan = next((p for p in plans() if p["code"] == name.removeprefix("plan:")), None)
             if not plan:
                 raise DomainError("Тариф недоступен. Откройте актуальные цены.")
-            await message.answer(
+            await show(
                 f"Вы выбрали: {plan['title']}\nК оплате: {plan['price']} ₽.\n\nПосле оформления администратор лично пришлёт реквизиты. Доступ выдаётся после ручной проверки перевода.",
                 reply_markup=buttons(
                     [
@@ -233,7 +264,7 @@ def build_dispatcher():
             _, code, signature = name.split(":", 2)
             contact = await sync_to_async(bot_contact)(user_id, message.chat.id)
             order = await sync_to_async(place_order)(contact, code, signature)
-            await message.answer(order_text(order), reply_markup=order_buttons(order))
+            await show(order_text(order), reply_markup=order_buttons(order))
             return
         if name in ("orders",) or name.startswith(("order:", "paid:", "cancel-order:")):
             if name == "orders":
@@ -241,11 +272,9 @@ def build_dispatcher():
                     PurchaseOrder.objects.filter(contact__telegram_id=user_id).select_related("operation")[:5]
                 )
                 if not orders:
-                    await message.answer(
-                        "Заказов пока нет. Выберите срок подключения.", reply_markup=price_buttons()
-                    )
+                    await show("Заказов пока нет. Выберите срок подключения.", reply_markup=price_buttons())
                     return
-                await message.answer(
+                await show(
                     "Ваши последние заказы:",
                     reply_markup=buttons(
                         [
@@ -264,11 +293,11 @@ def build_dispatcher():
                 if action_name == "cancel-order"
                 else own_order
             )(key, user_id)
-            await message.answer(order_text(order), reply_markup=order_buttons(order))
+            await show(order_text(order), reply_markup=order_buttons(order))
             return
         if name == "existing":
             if identity:
-                await message.answer("Ваша подписка уже связана с Telegram.", reply_markup=menu())
+                await show("Ваша подписка уже связана с Telegram.", reply_markup=menu())
                 return
             contact = await sync_to_async(bot_contact)(user_id, message.chat.id)
             item = await sync_to_async(request_existing_subscription)(
@@ -277,7 +306,7 @@ def build_dispatcher():
                 first_name=profile.first_name or "" if profile else "",
                 last_name=profile.last_name or "" if profile else "",
             )
-            await message.answer(
+            await show(
                 "Заявка на привязку существующей подписки передана администратору. "
                 "Ожидайте ответа здесь — писать дополнительные сообщения не нужно. "
                 "Администратор проверит вашу подписку и пришлёт дальнейшие инструкции."
@@ -301,7 +330,7 @@ def build_dispatcher():
                 contact.save(update_fields=["support_pending"])
 
             await sync_to_async(support_mode)()
-            await message.answer(
+            await show(
                 "Напишите следующим сообщением, чем помочь. Не отправляйте пароли, персональные VPN-ссылки и QR."
                 if name == "support"
                 else "Ввод обращения отменён.",
@@ -311,7 +340,7 @@ def build_dispatcher():
             )
             return
         if name == "help":
-            await message.answer(
+            await show(
                 "Подключение: выберите тариф → оформите заказ → получите реквизиты лично от администратора → сообщите о переводе → дождитесь готовности → добавьте подписку в приложение.\n\nДля установки нажмите «Подключить VPN». Если VPN не работает, проверьте срок и обновите подписку в приложении. С вопросом можно обратиться здесь, без браузера.",
                 reply_markup=buttons(
                     [
@@ -337,21 +366,23 @@ def build_dispatcher():
                     return raw
 
                 raw = await sync_to_async(onboard)()
-                await message.answer(
+                await show(
                     "Настройте собственные логин и пароль для входа без Telegram. Ссылка действует 15 минут; никому её не передавайте.\n"
                     + settings.SITE_URL
                     + "/setup-account/?token="
-                    + raw
+                    + raw,
+                    reply_markup=buttons([[("← Главное меню", {"callback_data": "menu"})]]),
                 )
             else:
-                await message.answer(
+                await show(
                     "Кабинет доступен по вашему логину и паролю, без Telegram:\n"
                     + settings.SITE_URL
-                    + "/login/"
+                    + "/login/",
+                    reply_markup=buttons([[("← Главное меню", {"callback_data": "menu"})]]),
                 )
             return
         if not identity:
-            await message.answer(
+            await show(
                 "Доступ ещё не связан с этим Telegram. Новый клиент может оформить заказ; для существующего доступа нужна привязка.",
                 reply_markup=buttons(
                     [
@@ -364,9 +395,7 @@ def build_dispatcher():
             return
         sub = getattr(identity.user, "subscription", None)
         if not sub:
-            await message.answer(
-                "Подписка ещё не назначена. Обратитесь к администратору.", reply_markup=menu()
-            )
+            await show("Подписка ещё не назначена. Обратитесь к администратору.", reply_markup=menu())
             return
         if name == "status":
             from django.utils import timezone
@@ -376,17 +405,17 @@ def build_dispatcher():
                 text += "\nДо " + timezone.localtime(sub.expires_at).strftime("%d.%m.%Y %H:%M МСК")
             if sub.sync_status not in ("verified", "unmanaged"):
                 text += "\nПрименение требует проверки: " + sub.sync_status
-            await message.answer(text, reply_markup=menu())
+            await show(text, reply_markup=menu())
         elif name == "connect" or name.startswith(("device:", "client:")):
             url = subscription_url(sub)
             if not url:
-                await message.answer(
+                await show(
                     "Доступ ещё не выдан или требует проверки. Откройте статус заказа либо напишите администратору.",
                     reply_markup=menu(),
                 )
                 return
             if name == "connect":
-                await message.answer(
+                await show(
                     "Выберите устройство:",
                     reply_markup=buttons(
                         [
@@ -412,7 +441,7 @@ def build_dispatcher():
                     else "Выберите приложение. Одна и та же персональная ссылка используется в обоих клиентах."
                 )
                 applications = ["incy", "happ"] if platform == "ios" else ["happ", "incy"]
-                await message.answer(
+                await show(
                     text,
                     reply_markup=buttons(
                         [
@@ -432,7 +461,7 @@ def build_dispatcher():
                 info = client_info(app, platform)
                 if not info:
                     raise DomainError("Выберите приложение из меню.")
-                await message.answer(
+                await show(
                     f"{info['platform']} · {info['name']}\n\n1. Установите приложение по кнопке ниже.\n2. Скопируйте персональную ссылку. Добавьте подписку в приложении из буфера и обновите список серверов.\n3. Выберите профиль и включите подключение. Если система запросит разрешение VPN — подтвердите его.\n\nВаша персональная ссылка (не пересылайте её):\n"
                     + url
                     + "\n\nЕсли импорт из Telegram не сработал, вручную вставьте эту же ссылку в приложении.",
@@ -455,11 +484,15 @@ def build_dispatcher():
                 )
 
         else:
-            await message.answer("Эта кнопка устарела. Откройте главное меню.", reply_markup=menu())
+            await show("Эта кнопка устарела. Откройте главное меню.", reply_markup=menu())
 
     @dp.callback_query()
     async def callback(callback: CallbackQuery):
-        if not callback.message or callback.message.chat.type != "private":
+        if (
+            not isinstance(callback.message, Message)
+            or callback.message.date.timestamp() == 0
+            or callback.message.chat.type != "private"
+        ):
             await callback.answer("Откройте личный чат.", show_alert=True)
             return
         await callback.answer()
@@ -469,10 +502,18 @@ def build_dispatcher():
                     "@" + callback.from_user.username + " · " if callback.from_user.username else ""
                 ) + callback.from_user.full_name
                 await sync_to_async(bot_contact)(callback.from_user.id, callback.message.chat.id, display)
-                await action(callback.message, callback.from_user.id, callback.data or "", callback.from_user)
+                await action(
+                    callback.message,
+                    callback.from_user.id,
+                    callback.data or "",
+                    callback.from_user,
+                    edit=True,
+                )
             except (DomainError, ValueError) as exc:
-                await callback.message.answer(
+                await render_screen(
+                    callback.message,
                     str(exc) if isinstance(exc, DomainError) else "Кнопка устарела. Откройте меню.",
+                    edit=True,
                     reply_markup=menu(),
                 )
 

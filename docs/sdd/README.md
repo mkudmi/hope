@@ -26,6 +26,9 @@ SDD = Specification-Driven Development: сначала описываем про
 
 | ID | Изменение | Статус | Дата |
 |---|---|---|---|
+| 0012 | [Возврат на стартовый экран бота](changes/0012-bot-home-screen.md) | verified (автотесты) | 2026-10-12 |
+| 0011 | [Навигация бота в одном сообщении](changes/0011-bot-message-navigation.md) | verified (автотесты) | 2026-10-12 |
+| 0010 | [Локальный запуск Telegram-бота через Docker](changes/0010-local-bot-deployment.md) | verified (локальные сервисы) | 2026-10-12 |
 | 0009 | [Единый файл настроек](changes/0009-unified-env.md) | verified | 2026-10-12 |
 | 0008 | [Use cases кнопок](changes/0008-button-use-cases.md) | verified | 2026-10-12 |
 | 0007 | [Заявка на привязку и события в админскую группу](changes/0007-existing-subscription-request.md) | verified | 2026-10-12 |

@@ -210,3 +210,10 @@
 | copy-link (все варианты) | [UC-B046-copy-link](bot/UC-B046-copy-link.md) |
 
 Комбинации client/app/platform имеют собственные UC выбора и ссылки установки. URL-кнопки «Скачать …» не вызывают callback; copy_text работает средствами Telegram. Алиас web-setup обрабатывается тем же UC portal, но отдельной видимой кнопки сейчас нет.
+
+Callback-навигация бота редактирует текущее сообщение и клавиатуру; команды,
+ответы на текст и outbox остаются отдельными сообщениями. URL и copy_text
+выполняются клиентом Telegram. См. [SDD 0011](../sdd/changes/0011-bot-message-navigation.md).
+
+Маршрут menu возвращает стартовый экран /start по текущей Telegram-привязке;
+карта кнопок сохраняет UC-B001. См. [SDD 0012](../sdd/changes/0012-bot-home-screen.md).
