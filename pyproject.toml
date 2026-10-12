@@ -1,0 +1,36 @@
+[project]
+name = "hopevpnbot"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "aiogram>=3.20,<4",
+    "argon2-cffi>=25.1.0",
+    "cryptography>=50.0.2",
+    "django>=5.2,<5.3",
+    "gunicorn>=26.2.0",
+    "httpx>=0.28.1",
+    "psycopg[binary]>=3.3.6",
+    "pyotp>=2.10.0",
+    "python-dateutil>=2.9.0.post0",
+    "qrcode>=8.2",
+    "whitenoise>=6.12.0",
+]
+
+[dependency-groups]
+dev = [
+    "playwright>=1.63.0",
+    "pytest>=9.1.1",
+    "pytest-django>=4.14.0",
+    "ruff>=0.17.0",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+exclude = ["core/migrations"]
+
+[tool.ruff.lint.per-file-ignores]
+"core/models.py" = ["RUF012"]
