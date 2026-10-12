@@ -47,24 +47,26 @@ container=$("${compose[@]}" ps -q bot)
 [[ -n "$container" ]]
 [[ "$(docker inspect --format '{{.State.Status}}:{{.RestartCount}}' "$container")" == running:0 ]]
 # Inspect errors without printing real updates, identities or API tokens.
-if docker logs --since 35s "$container" 2>&1 | grep -Eq 'Traceback|Error|Conflict|Unauthorized|failed'; then
+if docker logs --since 35s "$container" 2>&1 | grep -Eq 'TelegramConflictError|Failed to fetch updates|CommandError:|Unauthorized|TelegramNetworkError'; then
     echo 'Bot startup error detected; inspect private server logs' >&2
     exit 1
 fi
 "${compose[@]}" exec -T bot python - <<'PY'
-import asyncio, os
-from aiogram import Bot
-async def check():
-    bot = Bot(os.environ['BOT_TOKEN'])
-    try:
-        me = await bot.get_me()
-        assert me.username.lower() == os.environ['BOT_USERNAME'].lower()
-        assert not (await bot.get_webhook_info()).url
-        assert len(await bot.get_my_commands()) == 10
-        print('Telegram identity, webhook and commands verified')
-    finally:
-        await bot.session.close()
-asyncio.run(check())
+import json, os, urllib.request
+try:
+    def call(method):
+        url = 'https://api.telegram.org/bot' + os.environ['BOT_TOKEN'] + '/' + method
+        with urllib.request.urlopen(url, timeout=15) as response:
+            payload = json.load(response)
+        assert payload['ok']
+        return payload['result']
+    assert call('getMe')['username'].lower() == os.environ['BOT_USERNAME'].lower()
+    assert not call('getWebhookInfo')['url']
+    assert len(call('getMyCommands')) == 10
+    print('Telegram identity, webhook and commands verified')
+except Exception:
+    raise SystemExit('Telegram startup verification failed; inspect private server settings') from None
+
 PY
 fi
 cleanup

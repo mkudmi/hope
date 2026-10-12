@@ -56,7 +56,7 @@ services:
     depends_on:
       web:
         condition: service_healthy
-    mem_limit: 192m
+    mem_limit: 384m
 
 volumes:
   hope-db:

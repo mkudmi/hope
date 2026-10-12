@@ -42,3 +42,10 @@ HOPE_IMAGE по current-sha. Постоянный запуск bot/worker пок
 
 Связанные документы: [SDD 0013](../docs/sdd/changes/0013-github-cz-deployment.md),
 [ADR 0003](../docs/sdd/decisions/0003-github-ssh-releases.md).
+
+Первый probe выявил OOM в cgroup bot при 192 MiB: ядро зафиксировало
+убитый Python с RSS около 182 MiB и дополнительной mapped memory. Лимит bot
+увеличен до 384 MiB; API-проверка использует лёгкий stdlib вместо второго
+aiogram-процесса. Старые callback с истёкшим query ID не являются отказом polling:
+они остаются в приватных логах, очередь updates не удаляется. Проверка выявляет
+конфликт polling, ошибки подключения/авторизации и перезапуски контейнера.
