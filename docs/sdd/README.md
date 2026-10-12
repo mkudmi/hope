@@ -26,7 +26,7 @@ SDD = Specification-Driven Development: сначала описываем про
 
 | ID | Изменение | Статус | Дата |
 |---|---|---|---|
-| 0013 | [GitHub → сервер Чехии](changes/0013-github-cz-deployment.md) | implementing | 2026-10-12 |
+| 0013 | [GitHub → сервер Чехии](changes/0013-github-cz-deployment.md) | verified (standby/probe) | 2026-10-12 |
 | 0012 | [Возврат на стартовый экран бота](changes/0012-bot-home-screen.md) | verified (автотесты) | 2026-10-12 |
 | 0011 | [Навигация бота в одном сообщении](changes/0011-bot-message-navigation.md) | verified (автотесты) | 2026-10-12 |
 | 0010 | [Локальный запуск Telegram-бота через Docker](changes/0010-local-bot-deployment.md) | verified (локальные сервисы) | 2026-10-12 |
