@@ -26,6 +26,7 @@ SDD = Specification-Driven Development: сначала описываем про
 
 | ID | Изменение | Статус | Дата |
 |---|---|---|---|
+| 0009 | [Единый файл настроек](changes/0009-unified-env.md) | verified | 2026-10-12 |
 | 0008 | [Use cases кнопок](changes/0008-button-use-cases.md) | verified | 2026-10-12 |
 | 0007 | [Заявка на привязку и события в админскую группу](changes/0007-existing-subscription-request.md) | verified | 2026-10-12 |
 | 0006 | [Комментарии клиентов из панели](changes/0006-panel-comments.md) | verified | 2026-10-12 |
