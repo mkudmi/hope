@@ -48,17 +48,17 @@ def menu():
     return buttons(
         [
             [
-                ("Тарифы и цены", {"callback_data": "prices"}),
-                ("Подключить VPN", {"callback_data": "connect"}),
+                ("💳 Тарифы и цены", {"callback_data": "prices"}),
+                ("🚀 Подключить VPN", {"callback_data": "connect"}),
             ],
             [
-                ("Моя подписка", {"callback_data": "status"}),
-                ("Продлить подписку", {"callback_data": "renew"}),
+                ("🔐 Моя подписка", {"callback_data": "status"}),
+                ("🔄 Продлить подписку", {"callback_data": "renew"}),
             ],
-            [("Мои заказы", {"callback_data": "orders"}), ("Помощь", {"callback_data": "help"})],
-            [("Браузерный кабинет", {"callback_data": "portal"})],
+            [("📦 Мои заказы", {"callback_data": "orders"}), ("💬 Помощь", {"callback_data": "help"})],
+            [("🌐 Браузерный кабинет", {"callback_data": "portal"})],
             *(
-                [[("Открыть сайт ↗", {"url": settings.SITE_URL + "/login/"})]]
+                [[("🌍 Открыть сайт ↗", {"url": settings.SITE_URL + "/login/"})]]
                 if settings.SITE_URL.startswith("https://")
                 else []
             ),
@@ -68,15 +68,16 @@ def menu():
 
 def home_screen(identity):
     if identity:
-        return "HOPE VPN · Ваша подписка и подключение.", menu()
+        return "👋 С возвращением! Здесь ваша подписка и всё для подключения к HOPE VPN.", menu()
     return (
-        "Добро пожаловать в HOPE VPN!\n\nВыберите тариф и срок, оформите заказ, получите реквизиты лично от администратора и сообщите о переводе. После ручной проверки владелец выдаст доступ.\n\nУже пользуетесь VPN? Для старой подписки запросите персональное приглашение у администратора и подключите Telegram к своему аккаунту.",
+        "👋 Добро пожаловать в HOPE VPN!\n\nПодключиться просто: выберите тариф и срок, оформите заказ и следуйте подсказкам бота.\n\n✨ Уже пользуетесь VPN? Напишите администратору, чтобы получить персональное приглашение и подключить Telegram к своему аккаунту.",
         buttons(
             [
-                [("Тарифы и цены", {"callback_data": "prices"})],
-                [("Хочу подключиться", {"callback_data": "new"})],
-                [("У меня уже есть подписка", {"callback_data": "existing"})],
-                [("Мои заказы", {"callback_data": "orders"}), ("Помощь", {"callback_data": "help"})],
+                [("💳 Тарифы и цены", {"callback_data": "prices"})],
+                [("🚀 Хочу подключиться", {"callback_data": "new"})],
+                [("🔗 У меня уже есть подписка", {"callback_data": "existing"})],
+                [("📦 Мои заказы", {"callback_data": "orders"}), ("💬 Помощь", {"callback_data": "help"})],
+                [("🌐 Веб версия", {"url": settings.SITE_URL + "/login/"})],
             ]
         ),
     )

@@ -26,6 +26,9 @@ SDD = Specification-Driven Development: сначала описываем про
 
 | ID | Изменение | Статус | Дата |
 |---|---|---|---|
+| 0016 | [Ссылка на веб-версию из стартового экрана](changes/0016-bot-web-version-link.md) | verified (локальная сборка; чат не проверялся) | 2026-10-13 |
+| 0015 | [Временно скрыть длительные тарифы в боте](changes/0015-hide-long-plans-in-bot.md) | verified (локальный код и контейнер) | 2026-10-13 |
+| 0014 | [Более дружелюбный стартовый экран бота](changes/0014-bot-home-tone.md) | verified (локальная сверка) | 2026-10-13 |
 | 0013 | [GitHub → сервер Чехии](changes/0013-github-cz-deployment.md) | verified (standby/probe) | 2026-10-12 |
 | 0012 | [Возврат на стартовый экран бота](changes/0012-bot-home-screen.md) | verified (автотесты) | 2026-10-12 |
 | 0011 | [Навигация бота в одном сообщении](changes/0011-bot-message-navigation.md) | verified (автотесты) | 2026-10-12 |

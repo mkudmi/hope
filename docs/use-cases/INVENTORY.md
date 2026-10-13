@@ -1,6 +1,6 @@
 # Инвентаризация элементов интерфейса
 
-Сверка исходных шаблонов и callbacks на 2026-10-12. Каждое вхождение кнопки/ссылки/раскрывающего блока связано с UC; динамические подписи перечислены без раскрытия реальных данных. Повторные места используют тот же сценарий.
+Сверка исходных шаблонов и callbacks на 2026-10-13. Каждое вхождение кнопки/ссылки/раскрывающего блока связано с UC; динамические подписи перечислены без раскрытия реальных данных. Повторные места используют тот же сценарий.
 
 ## [templates/account.html](../../templates/account.html)
 
@@ -202,8 +202,9 @@
 | status | [UC-B024-status](bot/UC-B024-status.md) |
 | connect | [UC-B025-connect](bot/UC-B025-connect.md) |
 | bind: | [UC-B047-bind](bot/UC-B047-bind.md) |
-| plan- (все варианты) | [UC-B013-plan-year](bot/UC-B013-plan-year.md), [UC-B009-plan-quarter](bot/UC-B009-plan-quarter.md), [UC-B005-plan-week](bot/UC-B005-plan-week.md), [UC-B007-plan-month](bot/UC-B007-plan-month.md), [UC-B011-plan-halfyear](bot/UC-B011-plan-halfyear.md) |
-| buy- (все варианты) | [UC-B012-buy-halfyear](bot/UC-B012-buy-halfyear.md), [UC-B008-buy-month](bot/UC-B008-buy-month.md), [UC-B010-buy-quarter](bot/UC-B010-buy-quarter.md), [UC-B006-buy-week](bot/UC-B006-buy-week.md), [UC-B014-buy-year](bot/UC-B014-buy-year.md) |
+| URL-кнопка «🌐 Веб версия» (стартовый экран) | [UC-B048-web-version](bot/UC-B048-web-version.md) |
+| plan- (текущий каталог) | [UC-B005-plan-week](bot/UC-B005-plan-week.md), [UC-B007-plan-month](bot/UC-B007-plan-month.md), [UC-B009-plan-quarter](bot/UC-B009-plan-quarter.md); halfyear/year временно исключены, см. [SDD 0015](../sdd/changes/0015-hide-long-plans-in-bot.md) |
+| buy- (текущий каталог) | [UC-B006-buy-week](bot/UC-B006-buy-week.md), [UC-B008-buy-month](bot/UC-B008-buy-month.md), [UC-B010-buy-quarter](bot/UC-B010-buy-quarter.md); halfyear/year временно исключены, см. [SDD 0015](../sdd/changes/0015-hide-long-plans-in-bot.md) |
 | device- (все варианты) | [UC-B041-device-macos](bot/UC-B041-device-macos.md), [UC-B026-device-android](bot/UC-B026-device-android.md), [UC-B031-device-ios](bot/UC-B031-device-ios.md), [UC-B036-device-windows](bot/UC-B036-device-windows.md) |
 | client- (все варианты) | [UC-B029-client-happ-android](bot/UC-B029-client-happ-android.md), [UC-B037-client-incy-windows](bot/UC-B037-client-incy-windows.md), [UC-B042-client-incy-macos](bot/UC-B042-client-incy-macos.md), [UC-B032-client-incy-ios](bot/UC-B032-client-incy-ios.md), [UC-B039-client-happ-windows](bot/UC-B039-client-happ-windows.md), [UC-B027-client-incy-android](bot/UC-B027-client-incy-android.md), [UC-B034-client-happ-ios](bot/UC-B034-client-happ-ios.md), [UC-B044-client-happ-macos](bot/UC-B044-client-happ-macos.md) |
 | install- (все варианты) | [UC-B038-install-incy-windows](bot/UC-B038-install-incy-windows.md), [UC-B035-install-happ-ios](bot/UC-B035-install-happ-ios.md), [UC-B040-install-happ-windows](bot/UC-B040-install-happ-windows.md), [UC-B028-install-incy-android](bot/UC-B028-install-incy-android.md), [UC-B043-install-incy-macos](bot/UC-B043-install-incy-macos.md), [UC-B045-install-happ-macos](bot/UC-B045-install-happ-macos.md), [UC-B033-install-incy-ios](bot/UC-B033-install-incy-ios.md), [UC-B030-install-happ-android](bot/UC-B030-install-happ-android.md) |
@@ -217,3 +218,5 @@ Callback-навигация бота редактирует текущее со�
 
 Маршрут menu возвращает стартовый экран /start по текущей Telegram-привязке;
 карта кнопок сохраняет UC-B001. См. [SDD 0012](../sdd/changes/0012-bot-home-screen.md).
+Главные меню используют приветствия и подписи с эмодзи; callbacks не меняются.
+См. [SDD 0014](../sdd/changes/0014-bot-home-tone.md).
