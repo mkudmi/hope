@@ -42,7 +42,7 @@ docker compose exec web python manage.py reset_staff_mfa --username admin --conf
 docker compose exec web python manage.py changepassword admin
 ```
 
-Сброс MFA завершает прежние сессии. `bootstrap_owner` создаёт отсутствующего локального владельца по `LOCAL_ADMIN_*`, не меняет пароль существующего и не обращается к панели. Для публичного production provisioning используйте `createsuperuser`.
+Сброс MFA завершает прежние сессии. `bootstrap_owner` создаёт отсутствующего локального владельца по `LOCAL_ADMIN_*`, не меняет пароль существующего и не обращается к панели. Для production используйте `createsuperuser` только по явному поручению владельца; не передавайте пароль аргументом команды и не записывайте его в логи. Production login `admin` создан 2026-10-13 с согласованными владельцем локальными credentials. Откройте `https://<домен-панели>/hope/staff/` и при первом входе завершите обязательную настройку TOTP. Сверка provisioning описана в [SDD 0019](sdd/changes/0019-czech-owner-account.md).
 
 ## Telegram
 
