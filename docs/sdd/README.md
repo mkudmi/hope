@@ -25,6 +25,7 @@ SDD = Specification-Driven Development: сначала описываем про
 ## Индекс изменений
 
 | ID | Изменение | Статус | Дата |
+| 0018 | [Публикация кабинета на Caddy по /hope/](changes/0018-publish-hope-cabinet.md) | verified (Czech production Caddy and web) | 2026-10-13 |
 | 0017 | [Production-режим на сервере Чехии](changes/0017-czech-production.md) | verified (deploy; panel write/tunnel separately pending) | 2026-10-13 |
 |---|---|---|---|
 | 0016 | [Ссылка на веб-версию из стартового экрана](changes/0016-bot-web-version-link.md) | verified (локальная сборка; чат не проверялся) | 2026-10-13 |

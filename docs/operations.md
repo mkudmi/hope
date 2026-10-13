@@ -135,7 +135,7 @@ python manage.py restore_hope --input <backup.enc> --confirm-restoration
 
 ## Кабинет на домене панели: /hope/
 
-Владелец подтвердил общий домен и путь `/hope/`. Адрес кабинета будет `https://<домен-панели>/hope/`; существующие адреса панели/API/подписок сохраняются. Текущая локальная `.env` остаётся на localhost, публичный домен этой задачей не развёрнут.
+Владелец подтвердил общий домен и путь `/hope/`. Адрес кабинета: `https://<домен-панели>/hope/`; существующие адреса панели/API/подписок сохраняются. Czech production проксирует путь действующим Caddy на loopback web-порт 18000. Локальная `.env` остаётся на localhost.
 
 Пример production-параметров (подставить домен, без секретов в документах):
 
@@ -153,7 +153,7 @@ PANEL_WRITES_ENABLED=true
 
 Путь из SITE_URL задаёт FORCE_SCRIPT_NAME, `/hope/static/` и область cookies `/hope/`. CSRF_TRUSTED_ORIGINS содержит только origin, без `/hope/`. Имена cookies — hope_session и hope_csrf; после изменения имён ранее открытые сессии потребуют повторного входа. SITE_URL, PANEL_URL и PANEL_SUB_URL — разные настройки; не дописывать `/hope/` к адресам панели или выдачи конфигураций.
 
-Фрагмент [nginx-hope-location.conf](../deploy/nginx-hope-location.conf) добавляется внутрь существующего HTTPS server-блока. До изменения проверить отсутствие текущего маршрута `/hope/`, сохранить конфигурацию и выполнить `nginx -t` на сервере. Не заменять этим фрагментом весь server и не применять reload действующего сервера без разрешённого развёртывания. Nginx снимает `/hope/` перед loopback upstream; Django восстанавливает публичный префикс при построении адресов. `/hope` перенаправляется на `/hope/`.
+На Czech production Caddyfile `/opt/3x-ui-proxy/Caddyfile` содержит HTTPS-маршруты панели, подписок, транспортов и HOPE auto gateway. Маршрут кабинета добавлен 2026-10-13: `/hope` → `/hope/`, обработчик `/hope/*` снимает prefix перед upstream `127.0.0.1:18000`; Django восстанавливает публичный префикс при построении адресов. Админка HOPE доступна по `/hope/staff/` и требует входа. При будущих изменениях проверить matcher-конфликты, сохранить файл и inode, изменить конфигурацию на месте, выполнить `docker exec caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile`, затем graceful reload через admin API Caddy на loopback. Не перезапускать контейнер Caddy и службы панели/VPN. HTTPS login и `/hope/static/app.css`/`app.js` проверены (200), а staff перенаправляется на login; проверка CSRF и активной browser-сессии остаётся отдельной. Результаты публикации — [SDD 0018](sdd/changes/0018-publish-hope-cabinet.md). Nginx-фрагмент остаётся примером для других размещений.
 
 TRUST_PROXY_HTTPS разрешено только при недоступном извне upstream и прокси, который перезаписывает X-Forwarded-Proto собственным `$scheme`. Пример настроен на loopback 127.0.0.1:8000. Контейнерный health-check отправляет HTTPS-заголовок для внутреннего запроса при таком размещении. HTTP→HTTPS на публичном сервере и сертификаты обслуживаются существующим прокси.
 
@@ -202,7 +202,7 @@ TRUST_PROXY_HTTPS разрешено только при недоступном 
 серверная .env /opt/hope/shared/.env (0600). Production deploy запускается вручную
 из GitHub Actions после Linux/Python 3.12/PostgreSQL тестов и оставляет web, bot и
 worker работающими. Перед cutover остановить локальные bot/worker с тем же токеном.
-Web слушает loopback 18000; публичный Caddy/панель/VPN не изменяются. Публичный
-`/hope/` и первоначальное создание production-владельца остаются отдельными шагами.
+Web слушает loopback 18000; публичный Caddy проксирует кабинет по `/hope/`.
+Первоначальное создание production-владельца остаётся отдельным шагом.
 Секреты приложения на сервере; SSH deploy key и закреплённый host key хранятся в
 существующем GitHub environment `czech-standby`. Не удалять volumes.
