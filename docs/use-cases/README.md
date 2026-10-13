@@ -94,7 +94,7 @@
 | UC-W025 | Включить напоминания | [Включить напоминания](web/UC-W025-reminders-true.md) |
 | UC-W026 | Выключить напоминания | [Выключить напоминания](web/UC-W026-reminders-false.md) |
 | UC-W027 | Создать одноразовую ссылку | [Создать одноразовую ссылку](web/UC-W027-tg-create.md) |
-| UC-W028 | Открыть @<bot_username> ↗ | [Открыть бот для привязки](web/UC-W028-tg-open.md) |
+| UC-W028 | Открыть в Telegram app ↗ / HTTPS fallback | [Открыть бот для привязки](web/UC-W028-tg-open.md) |
 | UC-W029 | Я подтвердил в боте — обновить | [Обновить подтверждение бота](web/UC-W029-tg-refresh.md) |
 | UC-W030 | Это мой Telegram — завершить | [Это мой Telegram — завершить](web/UC-W030-tg-confirm.md) |
 | UC-W031 | INCY · App Store ↗ / INCY ↗ | [INCY · App Store ↗ / INCY ↗](web/UC-W031-download-incy.md) |

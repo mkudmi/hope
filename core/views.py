@@ -3,6 +3,7 @@ import time
 import uuid
 from datetime import datetime, timedelta
 from functools import wraps
+from urllib.parse import urlencode
 
 import pyotp
 import qrcode
@@ -368,7 +369,15 @@ def telegram_view(request):
     return render(
         request,
         "telegram.html",
-        {"token": token, "link": f"https://t.me/{settings.BOT_USERNAME}?start={raw}" if raw else None},
+        {
+            "token": token,
+            "link": f"https://t.me/{settings.BOT_USERNAME}?start={raw}" if raw else None,
+            "app_link": (
+                "tg://resolve?" + urlencode({"domain": settings.BOT_USERNAME, "start": raw})
+                if raw
+                else None
+            ),
+        },
     )
 
 

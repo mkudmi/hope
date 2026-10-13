@@ -177,10 +177,11 @@
 
 | № | Тип / подпись в шаблоне | UC |
 |---|---|---|
-| 1 | a: Открыть @{{ bot_username }} ↗ | [UC-W028](web/UC-W028-tg-open.md) |
-| 2 | button: Это мой Telegram — завершить | [UC-W030](web/UC-W030-tg-confirm.md) |
-| 3 | a: Я подтвердил в боте — обновить | [UC-W029](web/UC-W029-tg-refresh.md) |
-| 4 | button: Создать одноразовую ссылку | [UC-W027](web/UC-W027-tg-create.md) |
+| 1 | a: Открыть в приложении Telegram ↗ | [UC-W028](web/UC-W028-tg-open.md) |
+| 2 | a: откройте ссылку через Telegram (HTTPS fallback) | [UC-W028](web/UC-W028-tg-open.md) |
+| 3 | button: Это мой Telegram — завершить | [UC-W030](web/UC-W030-tg-confirm.md) |
+| 4 | a: Я подтвердил в боте — обновить | [UC-W029](web/UC-W029-tg-refresh.md) |
+| 5 | button: Создать одноразовую ссылку | [UC-W027](web/UC-W027-tg-create.md) |
 
 ## Telegram: покрытие маршрутов кнопок
 

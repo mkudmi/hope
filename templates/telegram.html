@@ -1,1 +1,30 @@
-{% extends 'base.html' %}{% block content %}<section class="narrow"><div class="eyebrow">ПОДКЛЮЧЕНИЕ TELEGRAM</div><h1 class="page-title">Свяжем ваш аккаунт</h1><p class="lead small">VPN-ссылка и срок подписки сохранятся. Привязка завершается только после подтверждения в этом браузере.</p><div class="card">{% if link %}<ol class="steps"><li>Откройте бот и нажмите Start.</li><li>Подтвердите привязку в боте.</li><li>Вернитесь сюда и проверьте выбранный Telegram.</li></ol><a class="button primary" href="{{ link }}" target="_blank" rel="noopener noreferrer">Открыть @{{ bot_username }} ↗</a><p class="muted">Ссылка действует до {{ token.expires_at|date:'H:i' }} МСК. Не пересылайте её.</p>{% if token.candidate_id %}<div class="candidate">Выбран: <strong>{{ token.candidate_name }}</strong><br>ID {{ token.candidate_id }}</div>{% endif %}{% if token.bot_confirmed %}<form method="post">{% csrf_token %}<button class="button primary full" name="action" value="confirm">Это мой Telegram — завершить</button></form>{% else %}<a class="button secondary" href="{% url 'telegram' %}">Я подтвердил в боте — обновить</a>{% endif %}{% else %}<form method="post">{% csrf_token %}<button class="button primary" name="action" value="create">Создать одноразовую ссылку</button></form>{% endif %}</div></section>{% endblock %}
+{% extends 'base.html' %}
+{% block content %}
+<section class="narrow">
+  <div class="eyebrow">ПОДКЛЮЧЕНИЕ TELEGRAM</div>
+  <h1 class="page-title">Свяжем ваш аккаунт</h1>
+  <p class="lead small">VPN-ссылка и срок подписки сохранятся. Привязка завершается только после подтверждения в этом браузере.</p>
+  <div class="card">
+    {% if link %}
+      <ol class="steps">
+        <li>Откройте бот и нажмите Start.</li>
+        <li>Подтвердите привязку в боте.</li>
+        <li>Вернитесь сюда и проверьте выбранный Telegram.</li>
+      </ol>
+      <a class="button primary" href="{{ app_link }}">Открыть в приложении Telegram ↗</a>
+      <p class="muted">Если приложение не открылось, <a href="{{ link }}" target="_blank" rel="noopener noreferrer">откройте ссылку через Telegram</a>.</p>
+      <p class="muted">Ссылка действует до {{ token.expires_at|date:'H:i' }} МСК. Не пересылайте её.</p>
+      {% if token.candidate_id %}
+        <div class="candidate">Выбран: <strong>{{ token.candidate_name }}</strong><br>ID {{ token.candidate_id }}</div>
+      {% endif %}
+      {% if token.bot_confirmed %}
+        <form method="post">{% csrf_token %}<button class="button primary full" name="action" value="confirm">Это мой Telegram — завершить</button></form>
+      {% else %}
+        <a class="button secondary" href="{% url 'telegram' %}">Я подтвердил в боте — обновить</a>
+      {% endif %}
+    {% else %}
+      <form method="post">{% csrf_token %}<button class="button primary" name="action" value="create">Создать одноразовую ссылку</button></form>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
