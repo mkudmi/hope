@@ -25,7 +25,7 @@ SDD = Specification-Driven Development: сначала описываем про
 ## Индекс изменений
 
 | ID | Изменение | Статус | Дата |
-| 0017 | [Production-режим на сервере Чехии](changes/0017-czech-production.md) | implementing | 2026-10-13 |
+| 0017 | [Production-режим на сервере Чехии](changes/0017-czech-production.md) | verified (deploy; panel write/tunnel separately pending) | 2026-10-13 |
 |---|---|---|---|
 | 0016 | [Ссылка на веб-версию из стартового экрана](changes/0016-bot-web-version-link.md) | verified (локальная сборка; чат не проверялся) | 2026-10-13 |
 | 0015 | [Временно скрыть длительные тарифы в боте](changes/0015-hide-long-plans-in-bot.md) | verified (локальный код и контейнер) | 2026-10-13 |

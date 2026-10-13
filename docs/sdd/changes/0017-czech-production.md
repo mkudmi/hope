@@ -1,6 +1,6 @@
 # 0017 — Production-режим на сервере Чехии
 
-Статус: implementing. Создано: 2026-10-13. Обновлено: 2026-10-13.
+Статус: verified (production deploy; live panel write/tunnel separately pending). Создано: 2026-10-13. Обновлено: 2026-10-13.
 Связанные требования: R-06, R-07, R-08, R-11, R-12, R-17. Решение: [ADR 0004](../decisions/0004-czech-production-runtime.md).
 
 ## Проблема и результат
@@ -67,20 +67,21 @@ Telegram polling и потенциально тот же production API. При 
 
 | Критерий / требование | Код / документ | Проверка и среда | Фактический результат |
 |---|---|---|---|
-| AC-01 / R-11 | compose, deploy script, AGENTS | GitHub CI и проверка effective container env | не выполнено |
-| AC-02 / R-17 | workflow, deploy script | GitHub Actions и состояние Docker на сервере | не выполнено |
-| AC-03 / R-17 | deploy script | server DB preflight перед запуском worker | не выполнено |
-| AC-04 / R-17 | workflow, installed receiver | run SHA, workflow logs, server services | не выполнено |
-| AC-05 / R-17 | receiver, deploy script | backup metadata/permissions и отдельная DB | не выполнено |
-| AC-06 / R-06/R-07 | services, jobs, operations | просмотр политики; write во время deploy не производится | реализовано ранее; live операция не выполнялась |
+| AC-01 / R-11 | compose, deploy script, AGENTS | GitHub deploy и Django runtime assertion | Чехия поднята с `PANEL_MODE=real`, writes=true; локальная конфигурация осталась writes=false |
+| AC-02 / R-17 | workflow, deploy script | GitHub Actions run `38396346387` | Успех; web healthy, bot/worker running с RestartCount=0 после startup check; Telegram identity/webhook/10 commands подтверждены |
+| AC-03 / R-17 | deploy script | server DB preflight перед запуском worker | Проверка прошла: queued/applying операций нет |
+| AC-04 / R-17 | workflow, installed receiver | run SHA, workflow logs, server services | SHA `158fdf16a3c80758099cd38d8395bd4080c84258`; workflow success; Caddy/3x-ui/VPN не перезапускались |
+| AC-05 / R-17 | receiver, deploy script | backup перед заменой релиза, отдельная DB | Deploy завершился после backup_hope; отдельная PostgreSQL сохраняется, локальные данные не переносились |
+| AC-06 / R-06/R-07 | services, jobs, operations | политика и действия deploy | Deploy не создавал панельных операций; реальная запись клиенту ещё не выполнялась |
+
+Повторный CI: `38396346387` — `163 passed, 2 warnings`, ruff/system check/
+collectstatic/makemigrations check успешны. Предшествующий CI `38396146426` имел
+1 устаревшее строковое ожидание (162 passed); оно исправлено без изменения текста
+бота. Изменения кода: `6afe5ca`, `158fdf1`.
 
 ## Итог и ограничения
 
-Первая CI-попытка `38396146426` остановилась на существующем утверждении теста
-стартового экрана: реализация использует согласованное «ваша подписка», проверка
-требовала «Ваша подписка». До deploy дело не дошло. После корректировки проверки
-точечный тест прошёл (1 passed); полный CI/deploy ожидает повторного запуска.
-
-Заполнить после CI/deploy фактическими SHA, временем, health/status, итогом
-Telegram startup и подтверждением эффективных флагов. Не выводить URL/token/
-персональные записи. `verified` выставлять только после server-side подтверждений.
+Успешный deploy подтверждает старт приложения и production-конфигурацию, но не
+проверяет реальное создание/продление клиента, пользовательский туннель или
+внешнюю доступность `/hope/`. Production owner ещё не создан; web пока привязан
+к loopback. Не выводить URL/token/персональные записи в следующие отчёты.
