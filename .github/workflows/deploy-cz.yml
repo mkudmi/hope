@@ -1,14 +1,7 @@
-name: Deploy HOPE to Czech server (standby)
+name: Deploy HOPE to Czech server (production)
 
 on:
   workflow_dispatch:
-    inputs:
-      probe_bot:
-        description: "Run bot once for 30 seconds, then stop (local polling must be stopped)"
-        type: boolean
-        default: false
-  push:
-    branches: [main]
 
 permissions:
   contents: read
@@ -49,12 +42,12 @@ jobs:
     needs: verify
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    # Keep this existing environment name: its protected deployment secrets live here.
     environment: czech-standby
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Deploy exact release and stop server bot after verification
+      - name: Deploy exact release and keep production services running
         env:
-          PROBE_BOT: ${{ inputs.probe_bot }}
           DEPLOY_HOST: ${{ secrets.CZ_DEPLOY_HOST }}
           DEPLOY_KEY: ${{ secrets.CZ_DEPLOY_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.CZ_DEPLOY_KNOWN_HOSTS }}
@@ -65,9 +58,7 @@ jobs:
           printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/hope_deploy
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
           trap 'rm -f ~/.ssh/hope_deploy' EXIT
-          probe=""
-          if [[ "$PROBE_BOT" == true ]]; then probe=" probe"; fi
           git archive --format=tar.gz "$GITHUB_SHA" |
             ssh -i ~/.ssh/hope_deploy -o IdentitiesOnly=yes -o BatchMode=yes \
               -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
-              "root@$DEPLOY_HOST" "deploy $GITHUB_SHA$probe"
+              "root@$DEPLOY_HOST" "deploy $GITHUB_SHA"

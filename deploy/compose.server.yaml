@@ -6,7 +6,7 @@ x-app: &app
   environment:
     DATABASE_URL: postgres://hope:${LOCAL_DB_PASSWORD:?Set database password}@db:5432/${APP_DATABASE_NAME:-hope_live}
     PANEL_MODE: real
-    PANEL_WRITES_ENABLED: "false"
+    PANEL_WRITES_ENABLED: "true"
   restart: unless-stopped
 
 services:
