@@ -26,11 +26,11 @@ SDD = Specification-Driven Development: сначала описываем про
 
 | ID | Изменение | Статус | Дата |
 |---|---|---|---|
-| 0027 | [Веб-продление и обработка заказов из Telegram](changes/0027-web-renewal-and-telegram-admin.md) | verified (изолированно; не развёрнуто) | 2026-10-13 |
-| 0026 | [Главное меню после привязки Telegram](changes/0026-menu-after-telegram-binding.md) | verified (изолированные тесты; не развёрнуто) | 2026-10-13 |
-| 0025 | [Ссылка на Telegram-профиль в binding-заявке](changes/0025-telegram-contact-link.md) | verified (изолированно; клиент Telegram/выкладка не проверены) | 2026-10-13 |
-| 0024 | [Автоматический импорт после входа администратора](changes/0024-auto-import-on-admin-login.md) | verified (изолированные тесты; не развёрнуто) | 2026-10-13 |
-| 0023 | [Запоминать доверенный браузер на 15 дней](changes/0023-trusted-browser-15-days.md) | implementing (частичные проверки в 0024; не развёрнуто) | 2026-10-13 |
+| 0027 | [Веб-продление и обработка заказов из Telegram](changes/0027-web-renewal-and-telegram-admin.md) | verified (CI PostgreSQL + Czech deploy) | 2026-10-13 |
+| 0026 | [Главное меню после привязки Telegram](changes/0026-menu-after-telegram-binding.md) | verified (CI PostgreSQL + Czech deploy) | 2026-10-13 |
+| 0025 | [Ссылка на Telegram-профиль в binding-заявке](changes/0025-telegram-contact-link.md) | verified (CI + Czech deploy; клиент Telegram не проверен) | 2026-10-13 |
+| 0024 | [Автоматический импорт после входа администратора](changes/0024-auto-import-on-admin-login.md) | verified (CI PostgreSQL + Czech deploy) | 2026-10-13 |
+| 0023 | [Запоминать доверенный браузер на 15 дней](changes/0023-trusted-browser-15-days.md) | implementing (развёрнуто; частичные проверки) | 2026-10-13 |
 | 0021 | [Оставить одну кнопку браузерного кабинета в меню](changes/0021-single-web-cabinet-button.md) | verified (CI + Czech production) | 2026-10-13 |
 | 0020 | [Открывать привязку в Telegram приложении](changes/0020-telegram-app-deeplink.md) | verified (CI + Czech production deploy; device handoff pending) | 2026-10-13 |
 | 0019 | [Создать production администратора HOPE](changes/0019-czech-owner-account.md) | verified (Czech production DB) | 2026-10-13 |
