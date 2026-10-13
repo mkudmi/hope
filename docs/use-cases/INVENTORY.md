@@ -203,7 +203,7 @@
 | status | [UC-B024-status](bot/UC-B024-status.md) |
 | connect | [UC-B025-connect](bot/UC-B025-connect.md) |
 | bind: | [UC-B047-bind](bot/UC-B047-bind.md) |
-| URL-кнопка «🌐 Веб версия» (стартовый экран) | [UC-B048-web-version](bot/UC-B048-web-version.md) |
+| URL-кнопка «🌍 Открыть сайт ↗» (главное меню) | [UC-B048-web-version](bot/UC-B048-web-version.md) |
 | plan- (текущий каталог) | [UC-B005-plan-week](bot/UC-B005-plan-week.md), [UC-B007-plan-month](bot/UC-B007-plan-month.md), [UC-B009-plan-quarter](bot/UC-B009-plan-quarter.md); halfyear/year временно исключены, см. [SDD 0015](../sdd/changes/0015-hide-long-plans-in-bot.md) |
 | buy- (текущий каталог) | [UC-B006-buy-week](bot/UC-B006-buy-week.md), [UC-B008-buy-month](bot/UC-B008-buy-month.md), [UC-B010-buy-quarter](bot/UC-B010-buy-quarter.md); halfyear/year временно исключены, см. [SDD 0015](../sdd/changes/0015-hide-long-plans-in-bot.md) |
 | device- (все варианты) | [UC-B041-device-macos](bot/UC-B041-device-macos.md), [UC-B026-device-android](bot/UC-B026-device-android.md), [UC-B031-device-ios](bot/UC-B031-device-ios.md), [UC-B036-device-windows](bot/UC-B036-device-windows.md) |
@@ -211,7 +211,7 @@
 | install- (все варианты) | [UC-B038-install-incy-windows](bot/UC-B038-install-incy-windows.md), [UC-B035-install-happ-ios](bot/UC-B035-install-happ-ios.md), [UC-B040-install-happ-windows](bot/UC-B040-install-happ-windows.md), [UC-B028-install-incy-android](bot/UC-B028-install-incy-android.md), [UC-B043-install-incy-macos](bot/UC-B043-install-incy-macos.md), [UC-B045-install-happ-macos](bot/UC-B045-install-happ-macos.md), [UC-B033-install-incy-ios](bot/UC-B033-install-incy-ios.md), [UC-B030-install-happ-android](bot/UC-B030-install-happ-android.md) |
 | copy-link (все варианты) | [UC-B046-copy-link](bot/UC-B046-copy-link.md) |
 
-Комбинации client/app/platform имеют собственные UC выбора и ссылки установки. URL-кнопки «Скачать …» не вызывают callback; copy_text работает средствами Telegram. Алиас web-setup обрабатывается тем же UC portal, но отдельной видимой кнопки сейчас нет.
+Комбинации client/app/platform имеют собственные UC выбора и ссылки установки. URL-кнопки «Скачать …» не вызывают callback; copy_text работает средствами Telegram. `portal` / `web-setup` остаются совместимыми callback в старых сообщениях; в главном меню кабинет открывается одной URL-кнопкой, команда `/account` сохраняется.
 
 Callback-навигация бота редактирует текущее сообщение и клавиатуру; команды,
 ответы на текст и outbox остаются отдельными сообщениями. URL и copy_text

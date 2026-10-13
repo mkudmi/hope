@@ -56,7 +56,6 @@ def menu():
                 ("🔄 Продлить подписку", {"callback_data": "renew"}),
             ],
             [("📦 Мои заказы", {"callback_data": "orders"}), ("💬 Помощь", {"callback_data": "help"})],
-            [("🌐 Браузерный кабинет", {"callback_data": "portal"})],
             *(
                 [[("🌍 Открыть сайт ↗", {"url": settings.SITE_URL + "/login/"})]]
                 if settings.SITE_URL.startswith("https://")
@@ -77,7 +76,7 @@ def home_screen(identity):
                 [("🚀 Хочу подключиться", {"callback_data": "new"})],
                 [("🔗 У меня уже есть подписка", {"callback_data": "existing"})],
                 [("📦 Мои заказы", {"callback_data": "orders"}), ("💬 Помощь", {"callback_data": "help"})],
-                [("🌐 Веб версия", {"url": settings.SITE_URL + "/login/"})],
+                [("🌍 Открыть сайт ↗", {"url": settings.SITE_URL + "/login/"})],
             ]
         ),
     )

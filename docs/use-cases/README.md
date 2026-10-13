@@ -36,7 +36,7 @@
 | UC-B020 | Написать администратору; support | [Написать администратору](bot/UC-B020-support.md) |
 | UC-B021 | Отменить ввод; support-cancel | [Отменить ввод обращения](bot/UC-B021-support-cancel.md) |
 | UC-B022 | 💬 Помощь; help | [Помощь](bot/UC-B022-help.md) |
-| UC-B023 | 🌐 Браузерный кабинет; portal; web-setup | [Браузерный кабинет](bot/UC-B023-portal.md) |
+| UC-B023 | /account; прежние callback portal/web-setup | [Браузерный кабинет](bot/UC-B023-portal.md) |
 | UC-B024 | 🔐 Моя подписка; status | [Моя подписка](bot/UC-B024-status.md) |
 | UC-B025 | 🚀 Подключить VPN; ← Устройства; connect | [Подключить VPN и вернуться к устройствам](bot/UC-B025-connect.md) |
 | UC-B026 | Android; ← Выбрать приложение (для Android); device:android | [Выбрать Android](bot/UC-B026-device-android.md) |
@@ -61,7 +61,7 @@
 | UC-B045 | Скачать Happ (экран macOS) | [Установить Happ на macOS](bot/UC-B045-install-happ-macos.md) |
 | UC-B046 | Скопировать ссылку; copy_text | [Скопировать ссылку подписки](bot/UC-B046-copy-link.md) |
 | UC-B047 | Это мой аккаунт; bind:<UUID> | [Это мой аккаунт](bot/UC-B047-bind.md) |
-| UC-B048 | 🌐 Веб версия | [Открыть веб-версию](bot/UC-B048-web-version.md) |
+| UC-B048 | 🌍 Открыть сайт ↗ (URL) | [Открыть веб-версию](bot/UC-B048-web-version.md) |
 
 ## Веб-кабинет и публичные страницы
 
