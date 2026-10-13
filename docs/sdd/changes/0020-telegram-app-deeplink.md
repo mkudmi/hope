@@ -1,6 +1,6 @@
 # 0020 — Открывать привязку в Telegram приложении
 
-Статус: implementing. Создано: 2026-10-13. Обновлено: 2026-10-13.
+Статус: verified (CI + Czech production deploy; device handoff pending). Создано: 2026-10-13. Обновлено: 2026-10-13.
 Связанные требования: R-23. Решения: не требуются.
 
 ## Проблема и результат
@@ -30,10 +30,10 @@ Telegram описывает схемы `t.me/<bot>?start=<parameter>` и `tg://r
 
 | Критерий / требование | Код / документ | Проверка и среда | Фактический результат |
 |---|---|---|---|
-| AC-01 / R-23 | `core/views.py`, `templates/telegram.html` | Ожидает локальную проверку после изменения | Не выполнено |
-| AC-02 / R-23 | `templates/telegram.html` | Ожидает локальную проверку | Не выполнено |
-| AC-03 / R-23 | `core/views.py`, `core/bot.py` | Поведение token confirmation не меняется; browser/device проверка отдельно | Не выполнено |
+| AC-01 / R-23 | `core/views.py`, `templates/telegram.html` | GitHub Actions и наличие обновлённого кода в Czech production web | CI пройден; `tg://resolve` и app-кнопка находятся в production image, используют `settings.BOT_USERNAME` и тот же raw start token |
+| AC-02 / R-23 | `templates/telegram.html` | CI и просмотр production template | HTTPS `t.me` ссылка остаётся видимой запасной кнопкой; тот же token |
+| AC-03 / R-23 | `core/views.py`, `core/bot.py` | Code review + production web health | Существующие start/confirm handlers не менялись; login отвечает 200, staff требует вход (302), web healthy, bot/worker running |
 
 ## Итог и ограничения
 
-Тест на устройстве должен проверить открытие установленного Telegram и HTTPS fallback в браузере без app handler. Для теста привязки нужен собственный аккаунт и действующая пользовательская сессия; искусственные сообщения в production не отправлять.
+Фактическое handoff на конкретном устройстве остаётся непроверенным. Пользователь может открыть страницу привязки, нажать основную кнопку и сообщить, запустился ли Telegram; HTTPS fallback остаётся рядом. Для проверки полного flow нужен собственный аккаунт и действующая пользовательская сессия; искусственные сообщения в production не отправлять.

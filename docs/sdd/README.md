@@ -25,7 +25,7 @@ SDD = Specification-Driven Development: сначала описываем про
 ## Индекс изменений
 
 | ID | Изменение | Статус | Дата |
-| 0020 | [Открывать привязку в Telegram приложении](changes/0020-telegram-app-deeplink.md) | implementing | 2026-10-13 |
+| 0020 | [Открывать привязку в Telegram приложении](changes/0020-telegram-app-deeplink.md) | verified (CI + Czech production deploy; device handoff pending) | 2026-10-13 |
 | 0019 | [Создать production администратора HOPE](changes/0019-czech-owner-account.md) | verified (Czech production DB) | 2026-10-13 |
 | 0018 | [Публикация кабинета на Caddy по /hope/](changes/0018-publish-hope-cabinet.md) | verified (Czech production Caddy and web) | 2026-10-13 |
 | 0017 | [Production-режим на сервере Чехии](changes/0017-czech-production.md) | verified (deploy; panel write/tunnel separately pending) | 2026-10-13 |
