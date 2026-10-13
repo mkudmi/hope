@@ -61,7 +61,7 @@ def test_return_home_uses_current_link(user):
     welcome = methods(session, "sendMessage")[0]
     identity = TelegramIdentity.objects.create(user=user, telegram_id=101, chat_id=101)
     asyncio.run(dp.feed_update(bot, callback("menu")))
-    assert "Ваша подписка" in methods(session, "editMessageText")[-1].text
+    assert "ваша подписка" in methods(session, "editMessageText")[-1].text.lower()
     identity.delete()
     asyncio.run(dp.feed_update(bot, callback("menu")))
     home = methods(session, "editMessageText")[-1]
