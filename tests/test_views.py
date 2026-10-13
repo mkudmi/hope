@@ -35,12 +35,20 @@ def test_other_account_cannot_read_subscription(portal, sub):
 
 
 def test_renewal_request_does_not_extend(portal, sub):
+    from django.test import override_settings
+
+    from core.models import PurchaseOrder
+    from core.orders import offer_key, plans
+
     end = sub.expires_at
-    portal.post("/renewal/", {"text": "Sent transfer"})
-    portal.post("/renewal/", {"text": "Again"})
+    with override_settings(TARIFFS_APPROVED=True):
+        plan = plans()[1]
+        portal.post("/renewal/", {"plan": f"month:{offer_key(plan)}"})
+        portal.post("/renewal/", {"plan": f"month:{offer_key(plan)}"})
     sub.refresh_from_db()
     assert sub.expires_at == end
-    assert Request.objects.filter(kind="renewal").count() == 1
+    assert PurchaseOrder.objects.count() == 1
+    assert not Request.objects.filter(kind="renewal").exists()
 
 
 def test_support_reply_visible_to_owner(staff, portal, user):

@@ -1,0 +1,12 @@
+{% extends 'base.html' %}{% block content %}<section class="narrow card">
+<h1>Подтвердить оплату и продление</h1>
+<p>Заказ №{{ order.number }} · {{ order.plan_title }} · {{ order.price_rub }} ₽.</p>
+<p>Подписка №{{ order.subscription.number }}. Текущий срок: {{ order.subscription.expires_at|date:'d.m.Y H:i' }} МСК.
+Новый срок: {{ approval.target_expires_at|date:'d.m.Y H:i' }} МСК.</p>
+<p>Основание: {{ approval.note }}</p>
+<p>Вы подтверждаете ручную проверку поступления перевода. Предпросмотр действует 10 минут.
+Квота и VPN-профили сохраняются. {% if approval.reenable %}Вы явно разрешаете включение доступа.{% else %}Блокировки сохраняются.{% endif %}</p>
+<form method="post" action="{% url 'staff_order' order.pk %}">{% csrf_token %}
+<input type="hidden" name="action" value="approve-renewal"><input type="hidden" name="approval" value="{{ approval.pk }}">
+<button class="button primary">Перевод проверен — продлить</button></form>
+<a href="{% url 'staff_order' order.pk %}">← Вернуться к заказу</a></section>{% endblock %}

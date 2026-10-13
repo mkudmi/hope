@@ -199,9 +199,13 @@ def deliver_notices():
         return 0
     count = 0
     for notice in Notice.objects.filter(status="pending", available_at__lte=timezone.now()).select_related(
-        "user", "telegram_contact"
+        "user", "telegram_contact", "purchase_order", "purchase_order__subscription"
     )[:10]:
         identity = None if notice.admin_event else getattr(notice.user, "telegram", None)
+        if notice.telegram_account_menu and not identity:
+            notice.status = "cancelled"
+            notice.save(update_fields=["status"])
+            continue
         sub = getattr(notice.user, "subscription", None)
         if notice.is_reminder and (
             not sub or sub.version != notice.subscription_version or not identity or not identity.reminders
@@ -225,13 +229,31 @@ def deliver_notices():
             notice.save()
             continue
         try:
+            payload = {
+                "chat_id": contact.chat_id if contact else identity.chat_id if identity else admin_chat,
+                "text": notice.text,
+                "link_preview_options": {"is_disabled": True},
+            }
+            if notice.telegram_entities:
+                payload["entities"] = notice.telegram_entities
+            if notice.telegram_account_menu:
+                from .bot import menu
+
+                payload["reply_markup"] = menu().model_dump(mode="json", exclude_none=True)
+            if notice.admin_event and notice.purchase_order_id:
+                from .bot import buttons
+
+                order = notice.purchase_order
+                rows = []
+                if order.kind == "renewal" and order.status in ("awaiting_payment", "payment_review", "paid"):
+                    rows.append([("Проверить перевод и продлить", {"callback_data": f"ao:preview:{order.pk}"})])
+                if settings.SITE_URL.startswith("https://"):
+                    rows.append([("Открыть заказ", {"url": f"{settings.SITE_URL}/staff/orders/{order.pk}/"})])
+                if rows:
+                    payload["reply_markup"] = buttons(rows).model_dump(mode="json", exclude_none=True)
             response = httpx.post(
                 f"https://api.telegram.org/bot{settings.BOT_TOKEN}/sendMessage",
-                json={
-                    "chat_id": contact.chat_id if contact else identity.chat_id if identity else admin_chat,
-                    "text": notice.text,
-                    "link_preview_options": {"is_disabled": True},
-                },
+                json=payload,
                 timeout=10,
             )
             data = response.json()
@@ -240,6 +262,11 @@ def deliver_notices():
         notice.attempts += 1
         if data.get("ok"):
             notice.status = "sent"
+            result = data.get("result") or {}
+            message_id = result.get("message_id") if isinstance(result, dict) else None
+            if isinstance(message_id, int) and message_id > 0:
+                notice.telegram_message_id = message_id
+                notice.telegram_chat_id = str(payload["chat_id"])
             count += 1
         elif data.get("error_code") == 403:
             if identity:

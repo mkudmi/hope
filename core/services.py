@@ -21,6 +21,7 @@ from .models import (
     Subscription,
     TelegramIdentity,
     Token,
+    TrustedBrowser,
     User,
     WorkerLock,
 )
@@ -74,6 +75,42 @@ def recovery_codes(user):
     RecoveryCode.objects.filter(user=user).delete()
     RecoveryCode.objects.bulk_create([RecoveryCode(user=user, digest=digest(x)) for x in codes])
     return codes
+
+
+def create_trusted_browser(user):
+    now = timezone.now()
+    TrustedBrowser.objects.filter(user=user, expires_at__lte=now).delete()
+    raw = random_token()
+    TrustedBrowser.objects.create(
+        user=user,
+        token_digest=digest(raw),
+        auth_version=user.auth_version,
+        password_fingerprint=digest(user.password),
+        expires_at=now + timedelta(days=15),
+    )
+    audit(user, "trusted_browser_added")
+    return raw
+
+
+def trusted_browser_valid(user, raw):
+    if not raw or not user.is_staff or not user.is_active or not user.totp_secret:
+        return False
+    now = timezone.now()
+    browser = TrustedBrowser.objects.filter(
+        user=user, token_digest=digest(raw), expires_at__gt=now
+    ).first()
+    if not browser:
+        return False
+    password_fingerprint = digest(user.password)
+    if (
+        browser.auth_version != user.auth_version
+        or not secrets.compare_digest(browser.password_fingerprint, password_fingerprint)
+    ):
+        browser.delete()
+        return False
+    browser.last_used_at = now
+    browser.save(update_fields=["last_used_at"])
+    return True
 
 
 @transaction.atomic
@@ -180,17 +217,26 @@ def confirm_web(token_id, user, session):
         f"telegram-linked:{token.id}",
         f"Telegram привязан к аккаунту {user.username}. Подробнее: {settings.SITE_URL}/staff/",
     )
-    notify(user, f"tg-linked:{token.id}", "Telegram успешно подключён. VPN-настройки сохранились.")
+    notify(
+        user,
+        f"tg-linked:{token.id}",
+        "✅ Telegram подключён к вашему аккаунту HOPE VPN.\n\n"
+        "Ваша подписка, подключение и продление — в меню ниже.",
+        telegram_account_menu=True,
+    )
 
 
 def notify(user, key, text, **kwargs):
     return Notice.objects.get_or_create(key=key, defaults={"user": user, "text": text, **kwargs})[0]
 
 
-def admin_event(key, text):
+def admin_event(key, text, *, telegram_entities=None, purchase_order=None):
     owner = User.objects.filter(is_staff=True, is_active=True).order_by("pk").first()
     if owner:
-        return notify(owner, key, text, admin_event=True)
+        return notify(
+            owner, key, text, admin_event=True,
+            telegram_entities=telegram_entities or [], purchase_order=purchase_order,
+        )
 
 
 def subscription_url(sub):

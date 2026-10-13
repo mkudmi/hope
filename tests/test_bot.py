@@ -68,7 +68,7 @@ def test_start_offer_does_not_create_vpn():
     session = FakeSession()
     bot = Bot("123456789:synthetic_test_token_for_offline_tests", session=session)
     asyncio.run(build_dispatcher().feed_update(bot, update("/start")))
-    assert any("персональное приглашение" in (getattr(m, "text", "") or "") for m in session.sent)
+    assert any("У меня уже есть подписка" in (getattr(m, "text", "") or "") for m in session.sent)
 
 
 def test_bot_telegram_link_only_sets_candidate(user):

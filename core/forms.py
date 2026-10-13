@@ -17,6 +17,22 @@ class EmergencyForm(BaseForm):
     version = forms.IntegerField(min_value=0, widget=forms.HiddenInput)
 
 
+class RenewalForm(BaseForm):
+    plan = forms.ChoiceField(
+        label="Срок подписки", widget=forms.RadioSelect,
+        error_messages={"invalid_choice": "Тариф изменился. Обновите страницу и выберите срок заново."},
+    )
+
+    def __init__(self, *args, **kwargs):
+        from .orders import offer_key, plans
+
+        super().__init__(*args, **kwargs)
+        self.fields["plan"].choices = [
+            (f"{plan['code']}:{offer_key(plan)}", f"{plan['title']} · {plan['price']} ₽")
+            for plan in plans(include_long=True)
+        ]
+
+
 class LoginForm(BaseForm):
     username = forms.CharField(
         label="Логин", max_length=32, widget=forms.TextInput(attrs={"autocomplete": "username"})
@@ -186,4 +202,8 @@ class TOTPForm(BaseForm):
                 "placeholder": "123456",
             }
         ),
+    )
+    remember_browser = forms.BooleanField(
+        label="Запомнить этот браузер на 15 дней",
+        required=False,
     )

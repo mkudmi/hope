@@ -10,3 +10,5 @@
 - [0002 — Заказы в Telegram до браузерного аккаунта](0002-telegram-first-purchases.md), accepted, 2026-10-12.
 
 - [0003 — GitHub Actions и отдельные SSH-релизы HOPE](0003-github-ssh-releases.md), accepted, 2026-10-12.
+
+- [0005 — Общие заказы и доверенные Telegram администраторы](0005-shared-orders-and-telegram-admin.md), accepted, 2026-10-13.

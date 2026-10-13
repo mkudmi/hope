@@ -10,7 +10,7 @@ from django.db.models import F
 from django.utils import timezone
 
 from core.crypto import unseal
-from core.models import Operation, Subscription, Token, User, WorkerLock
+from core.models import Operation, OrderApproval, Subscription, Token, User, WorkerLock
 
 
 class Command(BaseCommand):
@@ -38,6 +38,7 @@ class Command(BaseCommand):
                     cursor.execute(sql)
             User.objects.update(auth_version=F("auth_version") + 1)
             Token.objects.filter(consumed_at__isnull=True).update(consumed_at=timezone.now())
+            OrderApproval.objects.filter(consumed_at__isnull=True).update(expires_at=timezone.now())
             # Restoration must not replay old queued commands against newer real subscriptions.
             Operation.objects.filter(status__in=["queued", "applying"]).update(
                 status="conflict",

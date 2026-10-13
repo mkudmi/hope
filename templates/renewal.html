@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="narrow">
+  <div class="eyebrow">ВАША ПОДПИСКА</div><h1 class="page-title">Продление подписки</h1>
+  <p class="lead small">Выберите срок. Администратор получит заказ и пришлёт реквизиты сюда, в ваш кабинет.</p>
+  {% if available %}
+  <form method="post" class="card form-card">{% csrf_token %}{{ form.as_p }}
+    <p class="muted">Цена за весь срок. Месяцы календарные. Заказ и кнопка «Я оплатил» не меняют доступ: продление подтвердит администратор после проверки перевода.</p>
+    <button class="button primary full">Отправить запрос на продление</button>
+  </form>
+  {% else %}<div class="card"><p>Тарифы уточняются. Обратитесь в поддержку.</p></div>{% endif %}
+  <a class="text-link" href="{% url 'customer_orders' %}">Мои заказы →</a>
+</section>
+{% endblock %}

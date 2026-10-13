@@ -22,6 +22,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
+from .auth import TRUSTED_BROWSER_COOKIE
 from .clients import HAPP_URL, INCY_IOS_URL, import_url
 from .crypto import digest, seal, unseal
 from .forms import (
@@ -33,6 +34,7 @@ from .forms import (
     PublicRequestForm,
     RecoveryForm,
     RegisterForm,
+    RenewalForm,
     SensitiveForm,
     TOTPForm,
 )
@@ -45,6 +47,7 @@ from .services import (
     adopt_panel,
     audit,
     confirm_web,
+    create_trusted_browser,
     emergency_availability,
     import_clients,
     invitation,
@@ -57,6 +60,7 @@ from .services import (
     reset_password,
     setup_browser_account,
     subscription_url,
+    trusted_browser_valid,
 )
 
 
@@ -65,7 +69,24 @@ def bound_login(request, user):
     request.session["auth_version"] = user.auth_version
     request.session["last_activity"] = int(time.time())
     request.session["login_at"] = int(time.time())
+    request.session.pop("mfa_at", None)
+    request.session["staff_import_pending"] = bool(user.is_staff)
     request.session.set_expiry(3600 if user.is_staff else 30 * 86400)
+
+
+def import_panel_for_staff(request):
+    try:
+        count = import_clients(request.user)
+        messages.success(
+            request, f"Импорт завершён. Новых записей: {count}. Существующие VPN-настройки не изменены."
+        )
+    except (PanelError, DomainError) as exc:
+        messages.error(request, str(exc))
+
+
+def import_panel_after_login(request):
+    if request.session.pop("staff_import_pending", False):
+        import_panel_for_staff(request)
 
 
 def allowed(request, scope, key="", limit=8):
@@ -89,6 +110,11 @@ def login_view(request):
         elif form.is_valid():
             bound_login(request, form.user)
             audit(form.user, "login")
+            if form.user.is_staff and trusted_browser_valid(
+                form.user, request.COOKIES.get(TRUSTED_BROWSER_COOKIE, "")
+            ):
+                request.session["mfa_at"] = time.time()
+                import_panel_after_login(request)
             return redirect("staff" if form.user.is_staff else "dashboard")
     return render(
         request,
@@ -478,6 +504,67 @@ def help_view(request):
     return render(request, "help.html")
 
 
+@login_required
+def renewal_view(request):
+    from .orders import place_web_order
+
+    if request.user.is_staff:
+        return HttpResponseForbidden("Заказ доступен клиентскому аккаунту.")
+    form = RenewalForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        if not allowed(request, "web-order", request.user.pk, limit=8):
+            form.add_error(None, "Слишком много запросов. Подождите 10 минут.")
+        else:
+            try:
+                code, signature = form.cleaned_data["plan"].split(":", 1)
+                order = place_web_order(request.user, code, signature)
+                return redirect("customer_order", pk=order.pk)
+            except (DomainError, IntegrityError) as exc:
+                form.add_error(None, str(exc) if isinstance(exc, DomainError) else "Заказ уже создаётся. Откройте свои заказы.")
+    return render(request, "renewal.html", {"form": form, "available": bool(form.fields["plan"].choices)})
+
+
+@login_required
+def customer_orders(request):
+    from .models import PurchaseOrder
+
+    if request.user.is_staff:
+        return HttpResponseForbidden("Нет доступа.")
+    orders = PurchaseOrder.objects.filter(user=request.user).select_related("operation")[:50]
+    return render(request, "orders.html", {"orders": orders})
+
+
+@login_required
+def customer_order(request, pk):
+    from .models import PurchaseOrder
+    from .orders import cancel_web_order, report_web_payment
+
+    if request.user.is_staff:
+        return HttpResponseForbidden("Нет доступа.")
+    order = get_object_or_404(
+        PurchaseOrder.objects.select_related("subscription", "operation"), pk=pk, user=request.user,
+    )
+    if request.method == "POST":
+        try:
+            action = request.POST.get("action")
+            if action == "paid":
+                report_web_payment(pk, request.user)
+                messages.success(request, "Сообщение об оплате отправлено. Администратор проверит перевод вручную.")
+            elif action == "cancel":
+                cancel_web_order(pk, request.user)
+            else:
+                raise DomainError("Неизвестное действие.")
+        except DomainError as exc:
+            messages.error(request, str(exc))
+        return redirect("customer_order", pk=pk)
+    last_message_id = order.messages.order_by("-pk").values_list("pk", flat=True).first() or 0
+    operation_status = order.operation.status if order.operation else ""
+    order_version = f"{order.status}:{last_message_id}:{operation_status}"
+    if request.GET.get("updates") == "1":
+        return JsonResponse({"version": order_version})
+    return render(request, "order.html", {"order": order, "order_version": order_version})
+
+
 def request_view(request, kind="support"):
     if kind == "renewal" and not request.user.is_authenticated:
         return redirect("login")
@@ -542,7 +629,16 @@ def staff_required(view):
         if not request.user.totp_secret:
             return redirect("mfa_setup")
         if time.time() - request.session.get("mfa_at", 0) > 3600:
-            return redirect("mfa")
+            if not trusted_browser_valid(request.user, request.COOKIES.get(TRUSTED_BROWSER_COOKIE, "")):
+                response = redirect("mfa")
+                if request.COOKIES.get(TRUSTED_BROWSER_COOKIE):
+                    response.delete_cookie(
+                        TRUSTED_BROWSER_COOKIE,
+                        path=settings.SESSION_COOKIE_PATH,
+                        samesite=settings.SESSION_COOKIE_SAMESITE,
+                    )
+                return response
+            request.session["mfa_at"] = time.time()
         return view(request, *args, **kwargs)
 
     return inner
@@ -572,6 +668,8 @@ def mfa_view(request, setup=False):
     if not request.user.totp_secret and not setup:
         return redirect("mfa_setup")
     form = TOTPForm(request.POST or None)
+    if setup:
+        form.fields.pop("remember_browser", None)
     if request.user.totp_secret:
         secret = unseal(request.user.totp_secret)
     else:
@@ -586,6 +684,7 @@ def mfa_view(request, setup=False):
             step = int(time.time()) // 30
             from .models import User
 
+            response = None
             with transaction.atomic():
                 owner = User.objects.select_for_update().get(pk=request.user.pk)
                 same_secret = not owner.totp_secret or unseal(owner.totp_secret) == secret
@@ -596,7 +695,29 @@ def mfa_view(request, setup=False):
                     request.session.pop("totp_setup", None)
                     request.session["mfa_at"] = time.time()
                     audit(owner, "mfa_verified")
-                    return redirect("staff")
+                    trusted_token = None
+                    if not setup and form.cleaned_data.get("remember_browser"):
+                        trusted_token = create_trusted_browser(owner)
+                    response = redirect("staff")
+                    if trusted_token:
+                        response.set_cookie(
+                            TRUSTED_BROWSER_COOKIE,
+                            trusted_token,
+                            max_age=15 * 24 * 60 * 60,
+                            path=settings.SESSION_COOKIE_PATH,
+                            secure=settings.SESSION_COOKIE_SECURE,
+                            httponly=True,
+                            samesite=settings.SESSION_COOKIE_SAMESITE,
+                        )
+                    elif request.COOKIES.get(TRUSTED_BROWSER_COOKIE):
+                        response.delete_cookie(
+                            TRUSTED_BROWSER_COOKIE,
+                            path=settings.SESSION_COOKIE_PATH,
+                            samesite=settings.SESSION_COOKIE_SAMESITE,
+                        )
+            if response is not None:
+                import_panel_after_login(request)
+                return response
             form.add_error("code", "Код неверен или уже использован. Дождитесь нового кода.")
     return render(request, "mfa.html", {"form": form, "setup": setup, "secret": secret if setup else None})
 
@@ -638,13 +759,7 @@ def staff(request):
 @staff_required
 @require_POST
 def staff_import(request):
-    try:
-        count = import_clients(request.user)
-        messages.success(
-            request, f"Импорт завершён. Новых записей: {count}. Существующие VPN-настройки не изменены."
-        )
-    except (PanelError, DomainError) as exc:
-        messages.error(request, str(exc))
+    import_panel_for_staff(request)
     return redirect("staff")
 
 
@@ -864,7 +979,7 @@ def staff_orders(request):
 @staff_required
 def staff_order(request, pk):
     from .models import PurchaseOrder
-    from .orders import contact_notice, prepare_order, review_order
+    from .orders import approve_renewal, prepare_order, preview_renewal, reply_to_order, review_order
 
     order = get_object_or_404(
         PurchaseOrder.objects.select_related("contact", "user", "subscription", "operation"), pk=pk
@@ -884,13 +999,24 @@ def staff_order(request, pk):
                 if not text or len(text) > 2000:
                     raise DomainError("Введите сообщение длиной до 2000 символов.")
                 reply_id = uuid.UUID(request.POST.get("reply_id", ""))
-                contact_notice(
-                    order.contact,
-                    f"purchase-reply:{pk}:{reply_id}",
-                    f"Заказ №{order.number}. Сообщение администратора:\n" + text,
+                reply_to_order(pk, request.user, text, str(reply_id))
+                messages.success(request, "Сообщение сохранено в заказе клиента.")
+            elif action == "preview-renewal":
+                if not request.POST.get("checked_transfer"):
+                    raise DomainError("Подтвердите ручную проверку перевода.")
+                approval = preview_renewal(
+                    pk, request.user, request.POST.get("note", ""),
+                    reenable=bool(request.POST.get("reenable")),
                 )
-                audit(request.user, "purchase_reply", order.number)
-                messages.success(request, "Сообщение поставлено в очередь Telegram.")
+                return render(request, "staff/renewal-preview.html", {"order": order, "approval": approval})
+            elif action == "approve-renewal":
+                from .models import OrderApproval
+
+                approval = get_object_or_404(
+                    OrderApproval, pk=uuid.UUID(request.POST.get("approval", "")), order=order,
+                )
+                approve_renewal(approval.pk, request.user)
+                messages.success(request, "Оплата подтверждена, продление поставлено на проверку применения.")
             elif action == "preview":
                 if order.status != "paid":
                     raise DomainError("Сначала подтвердите оплату.")

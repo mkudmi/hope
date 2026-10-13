@@ -1,0 +1,8 @@
+{% extends 'base.html' %}{% block content %}
+<div class="eyebrow">ВАША ПОДПИСКА</div><h1 class="page-title">Мои заказы</h1>
+<a class="button primary" href="{% url 'renewal' %}">Выбрать срок продления</a>
+{% for order in orders %}<a class="card section order-card" href="{% url 'customer_order' order.pk %}">
+<strong>№{{ order.number }} · {{ order.plan_title }} · {{ order.price_rub }} ₽</strong>
+<span class="pill">{{ order.status_label }}</span></a>
+{% empty %}<p class="muted section">Заказов пока нет.</p>{% endfor %}
+{% endblock %}

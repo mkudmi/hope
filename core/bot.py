@@ -13,6 +13,7 @@ from aiogram.types import (
 )
 from asgiref.sync import sync_to_async
 from django.conf import settings
+from django.db.models import Q
 
 from .clients import PLATFORMS, client_info
 from .models import PurchaseOrder, Request, TelegramIdentity
@@ -69,7 +70,7 @@ def home_screen(identity):
     if identity:
         return "👋 С возвращением! Здесь ваша подписка и всё для подключения к HOPE VPN.", menu()
     return (
-        "👋 Добро пожаловать в HOPE VPN!\n\nПодключиться просто: выберите тариф и срок, оформите заказ и следуйте подсказкам бота.\n\n✨ Уже пользуетесь VPN? Напишите администратору, чтобы получить персональное приглашение и подключить Telegram к своему аккаунту.",
+        "👋 Добро пожаловать в HOPE VPN!\n\nПодключиться просто: выберите тариф и срок, оформите заказ и следуйте подсказкам бота.\n\n✨ Уже пользуетесь VPN? Нажмите ниже «🔗 У меня уже есть подписка». Заявка попадёт администратору: он проверит подписку и поможет привязать Telegram. Писать отдельно не нужно.",
         buttons(
             [
                 [("💳 Тарифы и цены", {"callback_data": "prices"})],
@@ -161,6 +162,9 @@ async def render_screen(message: Message, text, *, edit=False, **kwargs):
 
 def build_dispatcher():
     dp = Dispatcher()
+    from .admin_bot import install_admin_handlers
+
+    install_admin_handlers(dp)
 
     @dp.message(CommandStart())
     async def start(message: Message):
@@ -269,7 +273,10 @@ def build_dispatcher():
         if name in ("orders",) or name.startswith(("order:", "paid:", "cancel-order:")):
             if name == "orders":
                 orders = await sync_to_async(list)(
-                    PurchaseOrder.objects.filter(contact__telegram_id=user_id).select_related("operation")[:5]
+                    PurchaseOrder.objects.filter(
+                        Q(contact__telegram_id=user_id)
+                        | Q(user__telegram__telegram_id=user_id, user__is_active=True)
+                    ).select_related("operation")[:5]
                 )
                 if not orders:
                     await show("Заказов пока нет. Выберите срок подключения.", reply_markup=price_buttons())

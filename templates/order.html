@@ -1,0 +1,24 @@
+{% extends 'base.html' %}{% block content %}
+<section class="narrow" data-order-updates="{% url 'customer_order' order.pk %}?updates=1" data-order-version="{{ order_version }}"><a class="text-link" href="{% url 'customer_orders' %}">← Мои заказы</a>
+<h1 class="page-title">Заказ №{{ order.number }}</h1>
+<div class="card"><h2>{{ order.plan_title }} · {{ order.price_rub }} ₽</h2>
+<span class="pill">{{ order.status_label }}</span>
+<p>Цена и срок зафиксированы при оформлении.</p>
+{% if order.subscription %}<p>Подписка №{{ order.subscription.number }}</p>{% endif %}
+{% if order.status == 'awaiting_payment' %}
+<p>Дождитесь сообщения администратора с реквизитами ниже. После перевода нажмите «Я оплатил».</p>
+<form method="post">{% csrf_token %}<div class="actions">
+<button class="button primary" name="action" value="paid">Я оплатил</button>
+<button class="button secondary" name="action" value="cancel">Отменить заказ</button></div></form>
+{% elif order.status == 'payment_review' %}<p>Администратор проверяет перевод вручную. Повторно оплачивать не нужно.</p>
+{% elif order.status == 'paid' or order.status == 'provisioning' %}<p>Оплата подтверждена. Применение продления ещё проверяется.</p>
+{% elif order.status == 'fulfilled' %}<p>Изменение срока проверено.</p><a class="button primary" href="{% url 'dashboard' %}">Моя подписка</a>
+{% elif order.status == 'rejected' %}<p>{{ order.admin_note }}</p>{% endif %}
+{% if order.operation and order.operation.status != 'verified' %}<p class="muted">Применение: {{ order.operation.status }}. При ошибке администратор проверит результат; повторно оплачивать не нужно.</p>{% endif %}
+</div>
+<div class="card section"><h2>Сообщения администратора</h2>
+<p class="muted">Ответы и статус обновляются автоматически. <a href="{% url 'customer_order' order.pk %}">Обновить заказ</a></p>
+{% for message in order.messages.all %}<div class="reply"><p>{{ message.text|linebreaksbr }}</p><small>{{ message.created_at|date:'d.m.Y H:i' }} МСК</small></div>
+{% empty %}<p class="muted">Здесь появится ответ администратора, в том числе реквизиты для перевода.</p>{% endfor %}</div>
+<a class="text-link" href="{% url 'support' %}">Связаться с поддержкой →</a></section>
+{% endblock %}

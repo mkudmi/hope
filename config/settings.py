@@ -163,6 +163,15 @@ if any(price <= 0 for price in TARIFF_PRICES.values()):
     raise ImproperlyConfigured("Tariff prices must be positive integer ruble amounts")
 ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID", "")
 ADMIN_GROUP_CHAT_ID = os.getenv("ADMIN_GROUP_CHAT_ID", "")
+try:
+    ADMIN_TELEGRAM_USER_IDS = {
+        int(value.strip()) for value in os.getenv("ADMIN_TELEGRAM_USER_IDS", "").split(",") if value.strip()
+    }
+except ValueError:
+    raise ImproperlyConfigured("ADMIN_TELEGRAM_USER_IDS must contain numeric user IDs") from None
+if any(value <= 0 for value in ADMIN_TELEGRAM_USER_IDS):
+    raise ImproperlyConfigured("ADMIN_TELEGRAM_USER_IDS must contain positive user IDs")
+ADMIN_TELEGRAM_LOGIN = os.getenv("ADMIN_TELEGRAM_LOGIN", "admin").lower().strip()
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

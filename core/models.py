@@ -93,6 +93,19 @@ class RecoveryCode(models.Model):
     used_at = models.DateTimeField(null=True)
 
 
+class TrustedBrowser(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="trusted_browsers")
+    token_digest = models.CharField(max_length=64, unique=True)
+    auth_version = models.PositiveIntegerField()
+    password_fingerprint = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["user", "expires_at"], name="trusted_user_exp_idx")]
+
+
 class Operation(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     subscription = models.ForeignKey(Subscription, on_delete=models.PROTECT, related_name="operations")
@@ -129,6 +142,11 @@ class Notice(models.Model):
     telegram_contact = models.ForeignKey("BotContact", null=True, blank=True, on_delete=models.PROTECT)
     key = models.CharField(max_length=150, unique=True)
     text = models.TextField()
+    telegram_entities = models.JSONField(default=list, blank=True)
+    telegram_account_menu = models.BooleanField(default=False)
+    purchase_order = models.ForeignKey("PurchaseOrder", null=True, blank=True, on_delete=models.CASCADE)
+    telegram_message_id = models.BigIntegerField(null=True, blank=True)
+    telegram_chat_id = models.CharField(max_length=40, blank=True)
     admin_event = models.BooleanField(default=False)
     is_reminder = models.BooleanField(default=False)
     subscription_version = models.PositiveIntegerField(null=True)
@@ -198,7 +216,8 @@ class BotContact(models.Model):
 
 class PurchaseOrder(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    contact = models.ForeignKey(BotContact, on_delete=models.PROTECT, related_name="orders")
+    contact = models.ForeignKey(BotContact, null=True, blank=True, on_delete=models.PROTECT, related_name="orders")
+    source = models.CharField(max_length=12, default="telegram")
     user = models.ForeignKey(User, null=True, blank=True, on_delete=models.PROTECT)
     subscription = models.ForeignKey(Subscription, null=True, blank=True, on_delete=models.PROTECT)
     operation = models.OneToOneField(Operation, null=True, blank=True, on_delete=models.PROTECT)
@@ -241,5 +260,41 @@ class PurchaseOrder(models.Model):
                 fields=["contact"],
                 condition=Q(status__in=["awaiting_payment", "payment_review", "paid", "provisioning"]),
                 name="one_active_purchase_per_contact",
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=Q(user__isnull=False, status__in=["awaiting_payment", "payment_review", "paid", "provisioning"]),
+                name="one_active_purchase_per_user",
+            ),
+            models.CheckConstraint(
+                condition=Q(source="telegram", contact__isnull=False)
+                | Q(source="web", user__isnull=False, contact__isnull=True, kind="renewal"),
+                name="purchase_source_recipient",
+            ),
         ]
+
+
+class OrderMessage(models.Model):
+    order = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name="messages")
+    actor = models.ForeignKey(User, on_delete=models.PROTECT)
+    text = models.TextField(max_length=2000)
+    key = models.CharField(max_length=150, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "pk"]
+
+
+class OrderApproval(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE)
+    actor = models.ForeignKey(User, on_delete=models.PROTECT)
+    telegram_user_id = models.BigIntegerField(null=True, blank=True)
+    order_status = models.CharField(max_length=24)
+    terms_digest = models.CharField(max_length=64)
+    subscription_version = models.PositiveIntegerField()
+    target_expires_at = models.DateTimeField()
+    note = models.CharField(max_length=500)
+    reenable = models.BooleanField(default=False)
+    expires_at = models.DateTimeField()
+    consumed_at = models.DateTimeField(null=True, blank=True)

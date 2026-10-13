@@ -6,6 +6,7 @@ import httpx
 import pytest
 from asgiref.sync import sync_to_async
 from django.db import connection, connections
+from django.utils import timezone
 
 from core.jobs import deliver_notices
 from core.models import Notice, Operation, Request, TelegramIdentity
@@ -74,6 +75,7 @@ def test_group_events_override_admin_identity_but_personal_notices_remain_privat
         assert deliver_notices() == 2
     assert {m["chat_id"] for m in seen} == {"-100123456", 808}
     assert next(m for m in seen if m["chat_id"] == "-100123456")["text"] == "Новое событие"
+    assert all("entities" not in m and "parse_mode" not in m for m in seen)
 
 
 def test_group_fallback_and_retry_without_duplicate(admin, settings):
@@ -147,3 +149,50 @@ def test_staff_operation_error_is_one_group_event(admin, sub):
     finish_error(op, "failed", "Синтетическая ошибка")
     assert Notice.objects.filter(key__contains="op-error:").count() == 1
     assert Notice.objects.get(key__contains="op-error:").admin_event
+
+
+@pytest.mark.parametrize("username", ["alice_test", ""])
+def test_profile_link_entities_survive_delivery_retry(admin, settings, username):
+    from aiogram.types import MessageEntity
+
+    settings.BOT_TOKEN = "synthetic-test-token"
+    settings.ADMIN_GROUP_CHAT_ID = "-100123456"
+    contact = bot_contact(101, 101)
+    first_name = '🚀 Alice <a href="https://example.invalid">name</a> & [text]'
+    item = request_existing_subscription(
+        contact, username=username, first_name=first_name, last_name="Тестовая 🌍"
+    )
+    assert request_existing_subscription(contact, username="changed").pk == item.pk
+    notice = Notice.objects.get(admin_event=True)
+    assert Notice.objects.filter(admin_event=True).count() == 1
+    assert "tg://user" not in notice.text and "tg://user" not in item.text
+    assert first_name in notice.text
+    assert len(notice.telegram_entities) == 2
+    for entity in notice.telegram_entities:
+        MessageEntity.model_validate(entity)
+    link, cabinet_link = notice.telegram_entities
+    expected_url = "https://t.me/alice_test" if username else "tg://user?id=101"
+    assert link["type"] == "text_link" and link["url"] == expected_url
+    text_bytes = notice.text.encode("utf-16-le")
+    selected = text_bytes[2 * link["offset"] : 2 * (link["offset"] + link["length"])].decode("utf-16-le")
+    assert selected == "Открыть профиль"
+    cabinet_selected = text_bytes[
+        2 * cabinet_link["offset"] : 2 * (cabinet_link["offset"] + cabinet_link["length"])
+    ].decode("utf-16-le")
+    assert cabinet_selected == settings.SITE_URL + "/staff/requests/"
+    assert ("https://t.me/alice_test" in item.text) if username else ("ответьте через обращение" in item.text)
+
+    with patch(
+        "core.jobs.httpx.post", return_value=httpx.Response(200, json={"ok": False, "error_code": 429})
+    ) as post:
+        assert deliver_notices() == 0
+        first_payload = post.call_args.kwargs["json"]
+    notice.refresh_from_db()
+    assert notice.status == "pending" and notice.telegram_entities == first_payload["entities"]
+    notice.available_at = timezone.now()
+    notice.save(update_fields=["available_at"])
+    with patch("core.jobs.httpx.post", return_value=httpx.Response(200, json={"ok": True})) as post:
+        assert deliver_notices() == 1
+        payload = post.call_args.kwargs["json"]
+    assert payload == first_payload
+    assert payload["chat_id"] == "-100123456" and "parse_mode" not in payload

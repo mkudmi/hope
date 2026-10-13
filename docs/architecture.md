@@ -180,7 +180,7 @@ hopevpnbot/
 
 ## Заказы и клиенты приложений
 
-BotContact хранит адрес личного Telegram-ответа и состояние текстового обращения, PurchaseOrder — снимок цены/срока, статус ручной проверки и связь с Operation. Ручной paid отдельно от provisioning/fulfilled; verified worker-операции завершает заказ. Уникальный активный заказ по контакту и блокировки PostgreSQL сериализуют покупки/выдачи. Цена/длительность берутся из каталога settings при подтверждении, не из callback-параметров клиента.
+BotContact хранит адрес личного Telegram-ответа и состояние текстового обращения, PurchaseOrder — снимок цены/срока, статус ручной проверки и связь с Operation. Ручной paid отдельно от provisioning/fulfilled; verified worker-операции завершает заказ. Уникальный активный заказ по контакту/аккаунту и блокировки PostgreSQL сериализуют покупки/выдачи; веб renewal не требует контакта Telegram. Цена/длительность берутся из каталога settings при подтверждении, не из callback-параметров клиента.
 
 Notice имеет ровно одного адресата: User для подписочных сообщений или BotContact для заказов/поддержки до регистрации. Подтверждённая TelegramIdentity нужна для выдачи секретной ссылки; общий заказ сам по себе её не раскрывает. Новый аккаунт при новой выдаче не забирает старый panel binding. Миграция 0004 изменяет только БД HOPE. Обоснование — [ADR 0002](sdd/decisions/0002-telegram-first-purchases.md).
 
@@ -197,3 +197,52 @@ GitHub hosted runner передаёт точный SHA через restricted SSH
 свою PostgreSQL 17 и loopback web18000. Панель/прокси не входят в его project.
 Постоянный polling выключен, одноразовый probe завершается остановкой bot/worker.
 См. [ADR 0003](sdd/decisions/0003-github-ssh-releases.md).
+
+### Доверие браузера администратора
+
+После успешного TOTP администратор может явно доверить браузеру на 15 дней. Случайный токен передаётся в HttpOnly cookie, в `TrustedBrowser` хранится только его digest; пароль по-прежнему нужен при каждом входе. Смена password hash или `auth_version` отзывает доверие. См. [изменение 0023](sdd/changes/0023-trusted-browser-15-days.md).
+
+### Импорт при административном входе
+
+`bound_login` устанавливает сессионный маркер `staff_import_pending`. После
+успешной MFA он потребляется обработчиком входа: доверенная cookie проверяется
+в login POST, TOTP — в MFA POST. Импорт запускается вне транзакции MFA через тот
+же `import_clients`, что ручная кнопка. GET, обновление MFA в текущей сессии и
+клиентский вход его не вызывают. Ошибка панели не отменяет вход и не вызывает
+автоповторы. См. [0024](sdd/changes/0024-auto-import-on-admin-login.md).
+
+### Ссылки контактов в Telegram outbox
+
+`Notice.telegram_entities` хранит явные Telegram MessageEntity рядом с неизменным
+текстом. Worker передаёт их в sendMessage без parse_mode; обычные уведомления
+сохраняют прежний payload. Binding-уведомление содержит `text_link` на профиль
+и `url` на обращения. Границы считаются в UTF-16, имена остаются обычным текстом.
+См. [0025](sdd/changes/0025-telegram-contact-link.md).
+
+### Главное меню после привязки Telegram
+
+Финальная браузерная проверка создаёт персональный `Notice` с флагом
+`telegram_account_menu`. Worker проверяет личную TelegramIdentity и добавляет
+клавиатуру общего `core.bot.menu()`; административное событие получает только
+свой текст. Если Telegram отвязан до доставки, меню отменяется. Сетевой вызов
+не выполняется внутри транзакции привязки. См. [0026](sdd/changes/0026-menu-after-telegram-binding.md).
+
+### Заказы продления web/Telegram и административный чат
+
+PurchaseOrder хранит source и допускает пустой BotContact только для собственного
+web renewal с User/Subscription. OrderMessage хранит ручные ответы с уникальным
+ключом; клиентский кабинет читает только свои заказы. Последний ID сообщения,
+статус заказа и статус Operation образуют версию для обновления страницы каждые
+10 секунд, пока вкладка видима; query updates=1 не возвращает текст реквизитов.
+
+Notice связывает административное уведомление с заказом и сохраняет результат
+Telegram sendMessage (chat_id/message_id). Ответ из чата сопоставляется по этим
+полям, не по цитате или username. ADMIN_TELEGRAM_USER_IDS + конкретный чат
+определяют разрешённых операторов; ADMIN_TELEGRAM_LOGIN задаёт staff actor,
+личный Telegram ID сохраняется в аудите. Клиентская TelegramIdentity не даёт staff.
+
+OrderApproval фиксирует условия заказа, actor/канал, версию и абсолютный target
+на 10 минут. Финальное подтверждение атомарно вызывает review_order и
+prepare_order; ошибка отменяет совмещённое подтверждение. Запись панели остаётся
+в штатной worker Operation. [ADR 0005](sdd/decisions/0005-shared-orders-and-telegram-admin.md),
+[SDD 0027](sdd/changes/0027-web-renewal-and-telegram-admin.md).

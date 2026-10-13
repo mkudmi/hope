@@ -1,17 +1,32 @@
 """Durable Telegram purchase requests; only a staff member verifies transfers."""
 
 import uuid
+from datetime import timedelta
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
 
-from .models import BotContact, Notice, PurchaseOrder, Request, Subscription, TelegramIdentity, User
-from .services import DomainError, audit, prepare_operation
+from .crypto import digest
+from .models import (
+    BotContact,
+    Notice,
+    OrderApproval,
+    OrderMessage,
+    PurchaseOrder,
+    Request,
+    Subscription,
+    TelegramIdentity,
+    User,
+)
+from .services import DomainError, add_duration, audit, notify, prepare_operation
+
+ACTIVE_ORDER_STATES = ["awaiting_payment", "payment_review", "paid", "provisioning"]
 
 
-def plans():
+def plans(*, include_long=False):
     if not settings.TARIFFS_APPROVED:
         return []
     return [
@@ -20,7 +35,7 @@ def plans():
             ("week", "7 дней", 7, 0),
             ("month", "1 месяц", 0, 1),
             ("quarter", "3 месяца", 0, 3),
-        ]
+        ] + ([("halfyear", "6 месяцев", 0, 6), ("year", "12 месяцев", 0, 12)] if include_long else [])
     ]
 
 
@@ -39,14 +54,22 @@ def bot_contact(telegram_id, chat_id, display_name=""):
     return contact
 
 
-def contact_notice(contact, key, text):
-    return Notice.objects.get_or_create(key=key, defaults={"telegram_contact": contact, "text": text})[0]
+def contact_notice(contact, key, text, **kwargs):
+    return Notice.objects.get_or_create(
+        key=key, defaults={"telegram_contact": contact, "text": text, **kwargs}
+    )[0]
 
 
-def admin_notice(key, text):
+def order_notice(order, key, text):
+    if order.source == "web":
+        return notify(order.user, key, text, purchase_order=order)
+    return contact_notice(order.contact, key, text, purchase_order=order)
+
+
+def admin_notice(key, text, *, telegram_entities=None, purchase_order=None):
     from .services import admin_event
 
-    return admin_event(key, text)
+    return admin_event(key, text, telegram_entities=telegram_entities, purchase_order=purchase_order)
 
 
 def own_order(order_id, telegram_id):
@@ -56,7 +79,10 @@ def own_order(order_id, telegram_id):
         raise DomainError("Кнопка заказа устарела. Откройте список заказов.") from None
     order = (
         PurchaseOrder.objects.select_related("contact", "user", "operation")
-        .filter(pk=order_id, contact__telegram_id=telegram_id)
+        .filter(
+            Q(contact__telegram_id=telegram_id)
+            | Q(user__telegram__telegram_id=telegram_id, user__is_active=True), pk=order_id,
+        )
         .first()
     )
     if not order:
@@ -85,6 +111,11 @@ def place_order(contact, code, signature):
     if identity and (not identity.user.is_active or identity.user.is_staff):
         raise DomainError("Покупка недоступна этому аккаунту.")
     user = identity.user if identity else None
+    if user:
+        User.objects.select_for_update().get(pk=user.pk)
+        active = PurchaseOrder.objects.filter(user=user, status__in=ACTIVE_ORDER_STATES).first()
+        if active:
+            return active
     sub = getattr(user, "subscription", None)
     order = PurchaseOrder.objects.create(
         contact=contact,
@@ -101,13 +132,60 @@ def place_order(contact, code, signature):
     admin_notice(
         f"purchase-new:{order.pk}",
         f"Новый заказ №{order.number}: {order.plan_title}, {order.price_rub} ₽. Проверка вручную: {settings.SITE_URL}/staff/orders/{order.pk}/",
+        purchase_order=order,
     )
     return order
 
 
 @transaction.atomic
+def place_web_order(user, code, signature):
+    user = User.objects.select_for_update().get(pk=user.pk)
+    if not user.is_active or user.is_staff:
+        raise DomainError("Продление доступно владельцу клиентского аккаунта.")
+    plan = next((p for p in plans(include_long=True) if p["code"] == code), None)
+    if not plan or signature != offer_key(plan):
+        raise DomainError("Тариф изменился или недоступен. Выберите срок заново.")
+    sub = getattr(user, "subscription", None)
+    if not sub or not sub.snapshot or sub.excluded:
+        raise DomainError("Для продления нужна ваша действующая запись подписки. Обратитесь в поддержку.")
+    active = PurchaseOrder.objects.filter(user=user, status__in=ACTIVE_ORDER_STATES).first()
+    if active:
+        return active
+    order = PurchaseOrder.objects.create(
+        source="web", user=user, subscription=sub, kind="renewal",
+        plan_code=code, plan_title=plan["title"], price_rub=plan["price"],
+        days=plan["days"], months=plan["months"],
+    )
+    audit(user, "purchase_created", order.number)
+    admin_notice(
+        f"purchase-new:{order.pk}",
+        f"Заказ продления №{order.number} из кабинета {user.username}. Подписка №{sub.number}.\n"
+        f"{order.plan_title} · {order.price_rub} ₽. Ответьте на это сообщение, чтобы отправить клиенту текст.\n"
+        f"{settings.SITE_URL}/staff/orders/{order.pk}/",
+        purchase_order=order,
+    )
+    return order
+
+
+def own_web_order(order_id, user):
+    order = PurchaseOrder.objects.select_related("subscription", "operation").filter(pk=order_id, user=user).first()
+    if not order or not user.is_active or user.is_staff:
+        raise DomainError("Заказ не найден в вашем аккаунте.")
+    return order
+
+
+@transaction.atomic
+def report_web_payment(order_id, user):
+    return _report_payment(own_web_order(order_id, user).pk)
+
+
+@transaction.atomic
 def report_payment(order_id, telegram_id):
-    order = PurchaseOrder.objects.select_for_update().get(pk=own_order(order_id, telegram_id).pk)
+    return _report_payment(own_order(order_id, telegram_id).pk)
+
+
+def _report_payment(order_id):
+    order = PurchaseOrder.objects.select_for_update().get(pk=order_id)
     if order.status == "payment_review":
         return order
     if order.status != "awaiting_payment":
@@ -118,13 +196,23 @@ def report_payment(order_id, telegram_id):
     admin_notice(
         f"purchase-review:{order.pk}",
         f"Клиент сообщил о переводе по заказу №{order.number}: {order.price_rub} ₽. Это не подтверждение денег. {settings.SITE_URL}/staff/orders/{order.pk}/",
+        purchase_order=order,
     )
     return order
 
 
 @transaction.atomic
 def cancel_order(order_id, telegram_id):
-    order = PurchaseOrder.objects.select_for_update().get(pk=own_order(order_id, telegram_id).pk)
+    return _cancel_order(own_order(order_id, telegram_id).pk)
+
+
+@transaction.atomic
+def cancel_web_order(order_id, user):
+    return _cancel_order(own_web_order(order_id, user).pk)
+
+
+def _cancel_order(order_id):
+    order = PurchaseOrder.objects.select_for_update().get(pk=order_id)
     if order.status == "cancelled":
         return order
     if order.status != "awaiting_payment":
@@ -132,6 +220,7 @@ def cancel_order(order_id, telegram_id):
     admin_notice(
         f"purchase-cancelled:{order.pk}",
         f"Заказ №{order.number} отменён клиентом. {settings.SITE_URL}/staff/orders/",
+        purchase_order=order,
     )
     order.status = "cancelled"
     order.save()
@@ -144,10 +233,85 @@ def staff_guard(actor):
         raise DomainError("Действие доступно администратору.")
 
 
+def order_terms_digest(order):
+    return digest(
+        f"{order.pk}:{order.user_id}:{order.subscription_id}:{order.contact_id}:{order.source}:"
+        f"{order.plan_code}:{order.plan_title}:{order.price_rub}:{order.days}:{order.months}"
+    )
+
+
+@transaction.atomic
+def reply_to_order(order_id, actor, text, key, *, origin="web"):
+    staff_guard(actor)
+    text = text.strip()
+    if not text or len(text) > 2000:
+        raise DomainError("Введите текст длиной до 2000 символов.")
+    order = PurchaseOrder.objects.select_for_update().get(pk=order_id)
+    message, created = OrderMessage.objects.get_or_create(
+        key=f"order-reply:{order.pk}:{key}",
+        defaults={"order": order, "actor": actor, "text": text},
+    )
+    if created:
+        order_notice(order, message.key, f"Заказ №{order.number}. Сообщение администратора:\n" + text)
+        audit(actor, "purchase_reply", f"{order.number}:{origin}")
+    return message
+
+
+@transaction.atomic
+def preview_renewal(order_id, actor, note, *, telegram_user_id=None, reenable=False):
+    staff_guard(actor)
+    order = PurchaseOrder.objects.select_for_update().get(pk=order_id)
+    if order.kind != "renewal" or order.status not in ("awaiting_payment", "payment_review", "paid"):
+        raise DomainError("Продление уже обрабатывается или заказ недоступен.")
+    if not note.strip() or len(note) > 500:
+        raise DomainError("Укажите основание ручной проверки длиной до 500 символов.")
+    sub = Subscription.objects.select_for_update().get(pk=order.subscription_id)
+    if not sub.expires_at or sub.expiry_kind != "fixed":
+        raise DomainError("Срок бессрочный или не определён. Требуется отдельное решение в карточке доступа.")
+    if sub.owner_id != order.user_id or not sub.managed or sub.excluded or sub.sync_status == "conflict":
+        raise DomainError("Проверьте владельца и состояние подписки в админке.")
+    return OrderApproval.objects.create(
+        order=order, actor=actor, telegram_user_id=telegram_user_id,
+        order_status=order.status, terms_digest=order_terms_digest(order), subscription_version=sub.version,
+        target_expires_at=add_duration(max(timezone.now(), sub.expires_at), order.days, order.months),
+        note=note.strip(), reenable=reenable, expires_at=timezone.now() + timedelta(minutes=10),
+    )
+
+
+@transaction.atomic
+def approve_renewal(approval_id, actor, *, telegram_user_id=None):
+    staff_guard(actor)
+    approval = OrderApproval.objects.select_for_update().filter(
+        pk=approval_id, actor=actor, telegram_user_id=telegram_user_id,
+    ).first()
+    if not approval:
+        raise DomainError("Неверное подтверждение или другой администратор/канал.")
+    order = PurchaseOrder.objects.select_for_update().get(pk=approval.order_id)
+    if approval.consumed_at:
+        if order.operation_id:
+            return order.operation
+        raise DomainError("Подтверждение уже использовано.")
+    if (
+        approval.expires_at <= timezone.now() or order.status != approval.order_status
+        or order_terms_digest(order) != approval.terms_digest
+    ):
+        raise DomainError("Предпросмотр устарел. Проверьте заказ заново.")
+    if order.status != "paid":
+        review_order(order.pk, actor, "confirm", approval.note)
+    operation = prepare_order(
+        order.pk, actor, version=approval.subscription_version,
+        exact=approval.target_expires_at, reenable=approval.reenable,
+    )
+    approval.consumed_at = timezone.now()
+    approval.save(update_fields=["consumed_at"])
+    audit(actor, "purchase_approved", f"{order.number}:telegram={telegram_user_id or 'web'}")
+    return operation
+
+
 @transaction.atomic
 def review_order(order_id, actor, decision, note):
     staff_guard(actor)
-    order = PurchaseOrder.objects.select_for_update().select_related("contact").get(pk=order_id)
+    order = PurchaseOrder.objects.select_for_update(of=("self",)).select_related("contact").get(pk=order_id)
     if decision == "confirm" and order.confirmed_at:
         return order
     if order.status not in ("awaiting_payment", "payment_review") or decision not in ("confirm", "reject"):
@@ -163,13 +327,14 @@ def review_order(order_id, actor, decision, note):
     admin_notice(
         f"purchase-reviewed:{order.pk}:{decision}",
         f"Заказ №{order.number}: {order.status_label}. Решение: {actor.username}. {settings.SITE_URL}/staff/orders/",
+        purchase_order=order,
     )
-    contact_notice(
-        order.contact,
+    order_notice(
+        order,
         f"purchase-{decision}:{order.pk}",
         f"Заказ №{order.number}: {order.status_label}. "
         + (
-            "Администратор подготовит доступ; проверить статус можно в боте."
+            "Администратор подготовит доступ; проверить статус можно в заказе."
             if decision == "confirm"
             else order.admin_note
         ),
@@ -196,19 +361,20 @@ def prepare_order(
     # Resolve the current identity again; do not claim existing access on behalf of an unlinked buyer.
     identity = (
         TelegramIdentity.objects.select_related("user", "user__subscription")
-        .filter(telegram_id=order.contact.telegram_id)
+        .filter(telegram_id=order.contact.telegram_id if order.contact else None)
         .first()
     )
     if identity and (not identity.user.is_active or identity.user.is_staff):
         raise DomainError("Аккаунт недоступен. Требуется ручной разбор.")
     if order.kind == "renewal":
-        if (
-            not identity
-            or identity.user_id != order.user_id
-            or getattr(identity.user, "subscription", None) != order.subscription
+        owner = order.user if order.source == "web" else (identity.user if identity else None)
+        if not owner or not owner.is_active or owner.is_staff or (
+            owner.pk != order.user_id or getattr(owner, "subscription", None) != order.subscription
         ):
             raise DomainError("Привязка изменилась. Требуется ручная проверка владельца.")
         sub = Subscription.objects.select_for_update().get(pk=order.subscription_id)
+        if sub.owner_id != order.user_id:
+            raise DomainError("Владелец подписки изменился. Требуется ручная проверка.")
         if version != sub.version:
             raise DomainError("Подписка изменилась. Повторите предпросмотр.")
     else:
@@ -264,10 +430,10 @@ def sync_order_results():
     ):
         order.status = "fulfilled"
         order.save()
-        contact_notice(
-            order.contact,
+        order_notice(
+            order,
             f"purchase-ready:{order.pk}",
-            f"Заказ №{order.number}: доступ готов. Откройте «Подключить VPN» в меню бота. Срок и персональная ссылка доступны в «Моя подписка».",
+            f"Заказ №{order.number}: изменение доступа подтверждено. Срок и подключение доступны в вашем кабинете или меню бота.",
         )
 
 
@@ -311,20 +477,41 @@ def request_existing_subscription(contact, *, username="", first_name="", last_n
         f"Telegram ID: {contact.telegram_id}\n"
         f"Логин Telegram: {'@' + username if username else 'не указан'}\n"
         f"Имя: {first_name or 'не указано'}\n"
-        f"Фамилия: {last_name or 'не указана'}\n"
-        f"Контакт: tg://user?id={contact.telegram_id}"
+        f"Фамилия: {last_name or 'не указана'}"
     )
+    intro = "Заявка на привязку существующей подписки.\n" + profile
+    contact_url = f"https://t.me/{username}" if username else f"tg://user?id={contact.telegram_id}"
+    browser_contact = contact_url if username else "без username; ответьте через обращение в кабинете"
     item = Request.objects.create(
         telegram_contact=contact,
         kind="binding",
         contact="Telegram",
-        text="Заявка на привязку существующей подписки.\n" + profile,
+        text=intro + "\nКонтакт: " + browser_contact,
+    )
+    contact_prefix = intro + "\nКонтакт: "
+    contact_label = "Открыть профиль"
+    requests_url = f"{settings.SITE_URL}/staff/requests/"
+    notice_text = (
+        contact_prefix
+        + contact_label
+        + "\nПроверьте владельца по прежнему контакту, затем выдайте приглашение к нужной подписке."
+        + f"\nОбращения: {requests_url}"
     )
     admin_notice(
         f"existing-subscription:{item.pk}",
-        "Заявка на привязку существующей подписки.\n"
-        + profile
-        + "\nПроверьте владельца по прежнему контакту, затем выдайте приглашение к нужной подписке."
-        + f"\nОбращения: {settings.SITE_URL}/staff/requests/",
+        notice_text,
+        telegram_entities=[
+            {
+                "type": "text_link",
+                "offset": len(contact_prefix.encode("utf-16-le")) // 2,
+                "length": len(contact_label.encode("utf-16-le")) // 2,
+                "url": contact_url,
+            },
+            {
+                "type": "url",
+                "offset": len(notice_text[: -len(requests_url)].encode("utf-16-le")) // 2,
+                "length": len(requests_url.encode("utf-16-le")) // 2,
+            },
+        ],
     )
     return item

@@ -75,6 +75,7 @@
 
 | № | Тип / подпись в шаблоне | UC |
 |---|---|---|
+| 0 | checkbox: Запомнить этот браузер на 15 дней (только при подтверждении входа) | [UC-A051](admin/UC-A051-trust-browser.md) |
 | 1 | summary: Не можете сканировать? Ввести ключ вручную | [UC-A012](admin/UC-A012-mfa-manual.md) |
 | 2 | button: Скопировать ключ | [UC-A013](admin/UC-A013-mfa-copy.md) |
 | 3 | button: {% if setup %}Подключить защиту и войти{% else %}Подтвердить вход{% endif %} | [UC-A010](admin/UC-A010-mfa-setup.md), [UC-A011](admin/UC-A011-mfa-confirm.md) |
@@ -82,7 +83,7 @@
 
 | № | Тип / подпись в шаблоне | UC |
 |---|---|---|
-| 1 | button: Отправить обращение | [UC-W019](web/UC-W019-support-submit.md), [UC-W020](web/UC-W020-renewal-submit.md) |
+| 1 | button: Отправить обращение | [UC-W019](web/UC-W019-support-submit.md) |
 ## [templates/requests.html](../../templates/requests.html)
 
 | № | Тип / подпись в шаблоне | UC |
@@ -123,10 +124,10 @@
 | 2 | a: {{ open_requests }}открытых обращений | [UC-A002](admin/UC-A002-requests.md) |
 | 3 | a: {{ queued }}операций в очереди | [UC-A003](admin/UC-A003-events.md) |
 | 4 | a: {{ problems }}результатов требуют внимания | [UC-A019](admin/UC-A019-filter-errors.md) |
-| 5 | a: Заказы из Telegram | [UC-A004](admin/UC-A004-orders.md) |
+| 5 | a: Заказы клиентов | [UC-A004](admin/UC-A004-orders.md) |
 | 6 | a: Уведомить пользователей | [UC-A005](admin/UC-A005-broadcast.md) |
 | 7 | button: Найти | [UC-A014](admin/UC-A014-search.md) |
-| 8 | button: Импортировать из панели | [UC-A020](admin/UC-A020-import.md) |
+| 8 | button: Импортировать из панели; тот же импорт автоматически после нового входа и MFA | [UC-A020](admin/UC-A020-import.md) |
 | 9 | a: Все | [UC-A015](admin/UC-A015-filter-all.md) |
 | 10 | a: Без Telegram | [UC-A016](admin/UC-A016-filter-unlinked.md) |
 | 11 | a: Скоро истекают | [UC-A017](admin/UC-A017-filter-soon.md) |
@@ -149,7 +150,7 @@
 | 4 | button: Подтвердить оплату | [UC-A039](admin/UC-A039-order-confirm-payment.md) |
 | 5 | button: Перевод не подтверждён | [UC-A040](admin/UC-A040-order-reject-payment.md) |
 | 6 | button: Предпросмотр выдачи | [UC-A041](admin/UC-A041-order-preview.md) |
-| 7 | button: Отправить через очередь бота | [UC-A043](admin/UC-A043-order-reply.md) |
+| 7 | button: Отправить сообщение клиенту | [UC-A043](admin/UC-A043-order-reply.md) |
 ## [templates/staff/orders.html](../../templates/staff/orders.html)
 
 | № | Тип / подпись в шаблоне | UC |
@@ -179,7 +180,7 @@
 |---|---|---|
 | 1 | a: Открыть в приложении Telegram ↗ | [UC-W028](web/UC-W028-tg-open.md) |
 | 2 | a: откройте ссылку через Telegram (HTTPS fallback) | [UC-W028](web/UC-W028-tg-open.md) |
-| 3 | button: Это мой Telegram — завершить | [UC-W030](web/UC-W030-tg-confirm.md) |
+| 3 | button: Это мой Telegram — завершить; затем персональное главное меню в боте | [UC-W030](web/UC-W030-tg-confirm.md), [UC-B001](bot/UC-B001-menu.md) |
 | 4 | a: Я подтвердил в боте — обновить | [UC-W029](web/UC-W029-tg-refresh.md) |
 | 5 | button: Создать одноразовую ссылку | [UC-W027](web/UC-W027-tg-create.md) |
 
@@ -195,7 +196,7 @@
 | order: | [UC-B016-order-status](bot/UC-B016-order-status.md) |
 | paid: | [UC-B017-paid](bot/UC-B017-paid.md) |
 | cancel-order: | [UC-B018-cancel-order](bot/UC-B018-cancel-order.md) |
-| existing | [UC-B019-existing](bot/UC-B019-existing.md) |
+| existing; ссылка «Открыть профиль» в уведомлении админу | [UC-B019-existing](bot/UC-B019-existing.md) |
 | support | [UC-B020-support](bot/UC-B020-support.md) |
 | support-cancel | [UC-B021-support-cancel](bot/UC-B021-support-cancel.md) |
 | help | [UC-B022-help](bot/UC-B022-help.md) |
@@ -221,3 +222,18 @@ Callback-навигация бота редактирует текущее со�
 карта кнопок сохраняет UC-B001. См. [SDD 0012](../sdd/changes/0012-bot-home-screen.md).
 Главные меню используют приветствия и подписи с эмодзи; callbacks не меняются.
 См. [SDD 0014](../sdd/changes/0014-bot-home-tone.md).
+
+## Новые элементы web-продления
+
+| Источник | Действие | UC |
+|---|---|---|
+| templates/base.html, orders.html | Заказы / Мои заказы | [UC-W038](web/UC-W038-orders.md) |
+| templates/renewal.html | Выбрать срок / Отправить запрос на продление | [UC-W020](web/UC-W020-renewal-submit.md) |
+| templates/orders.html, order.html | Открыть / обновить заказ | [UC-W039](web/UC-W039-order.md) |
+| templates/order.html | Я оплатил | [UC-W040](web/UC-W040-payment-report.md) |
+| templates/order.html | Отменить заказ | [UC-W041](web/UC-W041-cancel.md) |
+| core/admin_bot.py | Текстовый reply на уведомление заказа | [UC-A052](admin/UC-A052-telegram-order-reply.md) |
+| core/jobs.py, core/admin_bot.py | Проверить перевод и продлить / ao:preview | [UC-A053](admin/UC-A053-telegram-renewal-preview.md) |
+| core/admin_bot.py | Перевод проверен — продлить / ao:approve | [UC-A054](admin/UC-A054-telegram-renewal-approve.md) |
+| templates/staff/order.html | Предпросмотр оплаты и продления | [UC-A055](admin/UC-A055-renewal-preview.md) |
+| templates/staff/renewal-preview.html | Перевод проверен — продлить | [UC-A056](admin/UC-A056-renewal-approve.md) |
